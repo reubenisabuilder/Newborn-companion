@@ -1,0 +1,10 @@
+# Backups exported from the app (may contain real health data — never commit these)
+newborn-companion-backup-*.json
+*.backup.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Newborn Companion</title>
+<style>
+  :root{
+    --page:#fbf3ea; --bg:#fbf3ea; --card:#ffffff; --ink:#3a2c22; --muted:#6b5d4e;
+    --accent:#e8825a; --accent-ink:#3a2c22; --accent-soft:#fde3d3; --line:#f1e4d6;
+    --good:#2f8a55; --warn:#b8790a; --danger:#c1453d; --danger-bg:#fbe6e2;
+    --shadow: 0 2px 14px rgba(58,44,34,0.07);
+    --radius:20px;
+    /* section identities */
+    --c-appt-bg:#ecefff; --c-appt-fg:#5063c9;
+    --c-health-bg:#e5f5ec; --c-health-fg:#2f8a5c;
+    --c-guide-bg:#fff2d4; --c-guide-fg:#b8790a;
+    --c-cry-bg:#fde6e1; --c-cry-fg:#c1594a;
+    --c-support-bg:#f8e6f4; --c-support-fg:#a1488c;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --page:#20180f; --bg:#20180f; --card:#2b2118; --ink:#f3eade; --muted:#b3a390;
+      --accent:#f0996f; --accent-ink:#241a10; --accent-soft:#4a3222; --line:#3c2f22;
+      --good:#5cbf88; --warn:#e0ac4c; --danger:#e6786d; --danger-bg:#432420;
+      --shadow: 0 2px 14px rgba(0,0,0,0.35);
+      --c-appt-bg:#262a48; --c-appt-fg:#a9b2f2;
+      --c-health-bg:#1f3327; --c-health-fg:#7fd1a4;
+      --c-guide-bg:#3a2e16; --c-guide-fg:#f0be5c;
+      --c-cry-bg:#3c241f; --c-cry-fg:#f0a294;
+      --c-support-bg:#38222f; --c-support-fg:#e4a7d6;
+    }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--page); color:var(--ink); -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:640px; margin:0 auto; padding:0 0 92px 0; min-height:100vh; position:relative;}
+
+  header.top{
+    padding:22px 18px 16px; position:sticky; top:0; background:var(--page);
+    z-index:10; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  header.top .who h1{font-size:1.3rem; margin:0 0 2px; font-weight:800;}
+  header.top .who .age{color:var(--muted); font-size:0.92rem; font-weight:600;}
+  .hero-badge{width:44px; height:44px; flex-shrink:0;}
+  .header-icons{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+  .icon-btn{
+    width:44px; height:44px; border-radius:50%; background:var(--accent-soft); color:var(--ink);
+    display:flex; align-items:center; justify-content:center; font-size:1.05rem; padding:0; flex-shrink:0;
+  }
+
+  .disclaimer{
+    margin:0 18px 14px; padding:10px 13px; background:var(--card); border-radius:12px;
+    font-size:0.76rem; color:var(--muted); line-height:1.4; border:1px solid var(--line);
+  }
+  main{padding:0 18px;}
+  .card{
+    background:var(--card); border-radius:var(--radius); padding:18px; margin-bottom:14px;
+    box-shadow:var(--shadow);
+  }
+  .card h2{font-size:1.02rem; margin:0 0 12px; font-weight:800;}
+  .card h3{font-size:0.9rem; margin:0 0 6px; font-weight:700;}
+  .row{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}
+  .muted{color:var(--muted);}
+  .small{font-size:0.83rem;}
+  button, .btn{
+    font-family:inherit; border:none; border-radius:12px; padding:11px 15px; font-size:0.9rem;
+    font-weight:700; cursor:pointer; background:var(--accent); color:var(--accent-ink);
+  }
+  button.secondary{background:var(--accent-soft); color:var(--ink);}
+  button.ghost{background:transparent; color:var(--accent); padding:6px 8px; font-weight:700;}
+  button.danger{background:var(--danger); color:#fff;}
+  input, select, textarea{
+    font-family:inherit; font-size:0.95rem; padding:10px 11px; border-radius:11px;
+    border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%;
+  }
+  label{font-size:0.78rem; color:var(--muted); font-weight:700; display:block; margin:10px 0 4px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .list-item{padding:12px 0; border-bottom:1px solid var(--line);}
+  .list-item:last-child{border-bottom:none;}
+  .chip{display:inline-block; padding:4px 10px; border-radius:999px; font-size:0.72rem; font-weight:800;}
+  .chip.type-Midwife{background:var(--c-health-bg); color:var(--c-health-fg);}
+  .chip.type-Health-Visitor{background:var(--c-appt-bg); color:var(--c-appt-fg);}
+  .chip.type-Hospital{background:var(--c-cry-bg); color:var(--c-cry-fg);}
+  .chip.type-GP{background:var(--c-support-bg); color:var(--c-support-fg);}
+  .chip.type-Other{background:var(--accent-soft); color:var(--ink);}
+
+  /* Bottom nav */
+  nav.tabs{
+    position:fixed; bottom:0; left:0; right:0; background:var(--card);
+    box-shadow:0 -2px 14px rgba(58,44,34,0.08);
+    display:flex; max-width:640px; margin:0 auto; z-index:20; padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  nav.tabs button{
+    flex:1; background:none; color:var(--muted); border-radius:14px; padding:8px 2px 6px; min-height:44px;
+    font-size:0.72rem; font-weight:700; display:flex; flex-direction:column; align-items:center; gap:4px;
+  }
+  nav.tabs button .ic{
+    font-size:1.05rem; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:transparent;
+  }
+  nav.tabs button.active{color:var(--ink);}
+  nav.tabs button[data-tab="dashboard"].active .ic{background:var(--accent-soft);}
+  nav.tabs button[data-tab="appointments"].active .ic{background:var(--c-appt-bg);}
+  nav.tabs button[data-tab="health"].active .ic{background:var(--c-health-bg);}
+  nav.tabs button[data-tab="guide"].active .ic{background:var(--c-guide-bg);}
+  nav.tabs button[data-tab="support"].active .ic{background:var(--c-support-bg);}
+
+  .tabpanel{display:none;}
+  .tabpanel.active{display:block;}
+  .empty{color:var(--muted); font-size:0.88rem; padding:8px 0;}
+  .actions-row{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+
+  .modal-bg{position:fixed; inset:0; background:rgba(30,20,12,0.45); display:none; align-items:flex-end; z-index:50;}
+  .modal-bg.open{display:flex;}
+  .modal{
+    background:var(--card); width:100%; max-width:640px; margin:0 auto; border-radius:22px 22px 0 0;
+    padding:22px 20px calc(22px + env(safe-area-inset-bottom)); max-height:88vh; overflow-y:auto;
+  }
+  .modal h2{margin-top:0;}
+  .modal .modal-icon{font-size:1.8rem; width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:10px;}
+
+  /* Stat grid on dashboard */
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .stat-tile{background:var(--card); border-radius:16px; padding:14px; box-shadow:var(--shadow);}
+  .stat-tile .label{font-size:0.72rem; color:var(--muted); font-weight:700; margin-bottom:4px;}
+  .stat-tile .value{font-size:1.3rem; font-weight:800;}
+  .stat-tile .sub{font-size:0.72rem; color:var(--muted); margin-top:2px;}
+
+  .hero-age{font-size:2.1rem; font-weight:800; line-height:1.1;}
+  .hero-sub{color:var(--muted); font-size:0.9rem; font-weight:600; margin-top:2px;}
+
+  /* Segmented control (week chips / metric tabs) */
+  .segmented{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; -webkit-overflow-scrolling:touch;}
+  .segmented::-webkit-scrollbar{display:none;}
+  .seg-btn{
+    flex:0 0 auto; padding:9px 14px; border-radius:999px; background:var(--bg); color:var(--muted);
+    font-weight:800; font-size:0.82rem; white-space:nowrap; border:1px solid var(--line);
+  }
+  .seg-btn.active{background:var(--guide-fg,var(--accent)); color:#fff; border-color:transparent;}
+  .seg-btn.active.mode-guide{background:var(--c-guide-fg);}
+  .seg-btn.active.mode-health{background:var(--c-health-fg);}
+
+  /* Topic cards (Guide) */
+  .topic-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .topic-card{
+    background:var(--c-guide-bg); border-radius:16px; padding:14px; text-align:left; color:var(--ink);
+    display:flex; flex-direction:column; gap:6px; min-height:88px;
+  }
+  .topic-card .ic{font-size:1.4rem;}
+  .topic-card .t{font-weight:800; font-size:0.86rem;}
+  .topic-card .teaser{font-size:0.74rem; color:var(--muted); line-height:1.3;}
+
+  /* Crying icon grid */
+  .cry-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .cry-card{
+    background:var(--c-cry-bg); border-radius:16px; padding:14px; text-align:left; color:var(--ink);
+    display:flex; align-items:center; gap:10px; font-weight:800; font-size:0.86rem;
+  }
+  .cry-card .ic{font-size:1.5rem;}
+
+  /* Quick actions (Home) */
+  .qa-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;}
+  .qa-btn{
+    background:var(--card); border-radius:16px; padding:14px 8px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--ink); text-align:center;
+  }
+  .qa-btn .ic{font-size:1.4rem;}
+  .qa-btn .t{font-size:0.72rem; font-weight:800; line-height:1.2;}
+
+  /* Recent activity (Home) */
+  .activity-item{
+    display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line);
+    text-align:left; width:100%; background:transparent; color:var(--ink); font-weight:400; border-radius:0;
+  }
+  .activity-item:last-child{border-bottom:none;}
+  .activity-ic{width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0;}
+  .activity-body{flex:1; min-width:0;}
+  .activity-title{font-weight:700; font-size:0.86rem;}
+  .activity-sub{font-size:0.8rem; color:var(--muted); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .activity-date{font-size:0.78rem; color:var(--muted); flex-shrink:0; white-space:nowrap;}
+
+  /* Search */
+  .search-input{font-size:1rem; padding:12px 14px; border-radius:12px;}
+  .search-result{
+    display:block; width:100%; text-align:left; padding:11px 0; border-bottom:1px solid var(--line);
+    background:transparent; color:var(--ink); font-weight:400; border-radius:0;
+  }
+  .search-result:last-child{border-bottom:none;}
+  .search-result .title{font-weight:700; font-size:0.88rem;}
+  .search-result .snippet{font-size:0.8rem; color:var(--muted); margin-top:2px;}
+
+  .redflag{background:var(--danger-bg); border-radius:16px; padding:14px; margin-bottom:14px;}
+  .redflag h3{color:var(--danger); margin:0 0 6px;}
+  .support-org{padding:11px 0; border-bottom:1px solid var(--line);}
+  .support-org:last-child{border-bottom:none;}
+  .support-org a{color:var(--accent); font-weight:700; text-decoration:none;}
+
+  textarea{min-height:74px; resize:vertical;}
+  .btn-add{float:right;}
+  h2 .btn-add{margin-top:-4px;}
+
+  /* Chart */
+  .chart-wrap{width:100%;}
+  .chart-readout{font-size:0.86rem; font-weight:700; margin-top:6px;}
+  .chart-readout .d{color:var(--muted); font-weight:600; font-size:0.78rem;}
+  .metric-point{cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="top">
+    <div class="who">
+      <h1 id="babyHeader">Newborn Companion</h1>
+      <div class="age" id="ageLine"></div>
+    </div>
+    <div class="header-icons">
+      <button class="icon-btn" onclick="NC.openSearch()" aria-label="Search">🔍</button>
+      <button class="icon-btn" onclick="NC.goTab('settings')" aria-label="Settings">⚙️</button>
+      <svg class="hero-badge" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <circle cx="32" cy="32" r="30" fill="var(--accent-soft)"/>
+        <path d="M40 18a14 14 0 1 0 6 19.8A11 11 0 0 1 40 18Z" fill="var(--accent)"/>
+        <circle cx="18" cy="20" r="2.4" fill="var(--accent)"/>
+        <circle cx="14" cy="30" r="1.6" fill="var(--accent)"/>
+        <circle cx="46" cy="46" r="1.8" fill="var(--accent)"/>
+      </svg>
+    </div>
+  </header>
+
+  <div class="disclaimer">General information only, not medical advice or a diagnosis. For anything you're worried about, contact your midwife, health visitor or GP — call <strong>111</strong> for urgent advice, or <strong>999</strong> in an emergency.</div>
+
+  <main>
+    <section class="tabpanel active" id="tab-dashboard"></section>
+    <section class="tabpanel" id="tab-appointments"></section>
+    <section class="tabpanel" id="tab-health"></section>
+    <section class="tabpanel" id="tab-guide"></section>
+    <section class="tabpanel" id="tab-support"></section>
+    <section class="tabpanel" id="tab-settings"></section>
+  </main>
+
+  <nav class="tabs">
+    <button data-tab="dashboard" class="active"><span class="ic">🏠</span>Home</button>
+    <button data-tab="appointments"><span class="ic">📅</span>Appts</button>
+    <button data-tab="health"><span class="ic">📈</span>Data</button>
+    <button data-tab="guide"><span class="ic">📖</span>Guide</button>
+    <button data-tab="support"><span class="ic">💛</span>Support</button>
+  </nav>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modalBody" role="dialog" aria-modal="true" tabindex="-1"></div></div>
+
+<script>
+(function(){
+"use strict";
+
+const KEY = "newborn_companion_v1";
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { baby:null, appointments:[], healthLogs:[] };
+}
+let state = loadState();
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function fmtDate(d, opts){
+  if(!d) return "";
+  const dt = new Date(d + "T00:00:00");
+  return dt.toLocaleDateString(undefined, opts || {weekday:'short', day:'numeric', month:'short'});
+}
+function fmtShort(d){ return fmtDate(d, {day:'numeric', month:'short'}); }
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');
+}
+function daysBetween(a,b){
+  const da = new Date(a+"T00:00:00"), db = new Date(b+"T00:00:00");
+  return Math.round((db-da)/86400000);
+}
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s){ return s.replace(/"/g,'&quot;'); }
+
+// ---------- Week guide content (topic-based) ----------
+const WEEK_GUIDE = [
+  {key:"w1", chip:"Wk 1", range:"Week 1 (Days 1–7)", tag:"The blur", topics:[
+    {icon:"🍼", title:"Feeding", teaser:"Every 2–3 hours, round the clock", text:"Feeding roughly every 2–3 hours round the clock, including cluster feeding in the evenings, is normal and helps build your milk supply — not a sign anything's wrong."},
+    {icon:"😴", title:"Sleep", teaser:"16–18 hrs a day, in short bursts", text:"Newborns sleep 16–18 hours a day, but only in short 1–3 hour stretches — there's no day/night rhythm yet. That comes later."},
+    {icon:"🩺", title:"Health & checks", teaser:"Weight, jaundice, heel prick", text:"Weight loss of up to ~10% of birth weight in the first few days is expected — your midwife will weigh baby around day 5 to confirm they're heading back up. Jaundice is common from day 2–3 as their liver catches up; it's checked at the newborn exam within 72 hours. Around day 5–8, the heel prick (newborn blood spot) test screens for several rare conditions."},
+    {icon:"😢", title:"Crying & mood", teaser:"Mostly hunger, comfort, tiredness", text:"Crying is mostly hunger, needing a nappy change, wanting to be held, or being overtired — they can't be 'spoiled' at this age."},
+  ]},
+  {key:"w2", chip:"Wk 2", range:"Week 2", tag:"Finding a rhythm", topics:[
+    {icon:"🍼", title:"Feeding", teaser:"Watch for a growth spurt", text:"Feeds are still frequent and unpredictable. Growth spurts (common around 1–3 weeks) can mean a sudden run of extra-hungry days — feeding on demand through it settles supply within days."},
+    {icon:"😴", title:"Sleep", teaser:"Short awake windows", text:"Awake windows are short — most newborns can only manage 45–60 minutes awake before overtiredness kicks in and settling gets harder."},
+    {icon:"🩺", title:"Health & checks", teaser:"Birth weight regained; jaundice fading", text:"Most babies are back to (or past) birth weight by 2–3 weeks — a healthy sign feeding is going well. Jaundice usually fades by around 2 weeks; if it's getting worse, spreading, or baby seems very sleepy or hard to wake, contact your midwife or GP the same day."},
+  ]},
+  {key:"w34", chip:"Wk 3–4", range:"Weeks 3–4", tag:"A little more predictable", topics:[
+    {icon:"😴", title:"Sleep", teaser:"Loose patterns start to form", text:"You may start to notice loose patterns forming (not a routine yet) — a slightly longer stretch of sleep, a fussier time of evening."},
+    {icon:"😢", title:"Crying & mood", teaser:"Evening fussiness peaks", text:"Evening fussiness and cluster feeding peaking around 3–6 weeks is common and usually settles by 3 months — exhausting, but not usually a sign of a problem."},
+    {icon:"💛", title:"You", teaser:"Baby blues vs something more", text:"This is a common stretch for the 'baby blues' to have passed, but postnatal depression or anxiety to start showing in either parent — worth a look at the Support tab."},
+  ]},
+  {key:"w56", chip:"Wk 5–6", range:"Weeks 5–6", tag:"The 6-week check", topics:[
+    {icon:"🩺", title:"Health & checks", teaser:"6–8 week physical check", text:"Around 6–8 weeks, baby has their physical check (the NIPE follow-up) — heart, hips, eyes, testes if applicable, and general development. You'll usually have your own 6-week postnatal check too, covering physical and emotional recovery. First routine vaccinations are usually due at 8 weeks."},
+    {icon:"😴", title:"Sleep", teaser:"Maybe a longer stretch", text:"Some babies start settling into slightly longer night stretches around now — plenty don't, and that's still normal."},
+  ]},
+  {key:"w78", chip:"Wk 7–8", range:"Weeks 7–8", tag:"More alert", topics:[
+    {icon:"👀", title:"Development", teaser:"Tracking faces, early smiles", text:"Baby is likely more visually alert, tracking faces, and may offer early smiles."},
+    {icon:"😢", title:"Crying & mood", teaser:"Colic/reflux can peak now", text:"Wind, reflux-type discomfort or 'colic' (crying for 3+ hours a day, 3+ days a week) can peak around 6 weeks and usually improves by 3–4 months — worth flagging to your health visitor or GP if it's relentless."},
+  ]},
+  {key:"w912", chip:"Wk 9–12", range:"Weeks 9–12", tag:"Turning a corner", topics:[
+    {icon:"👀", title:"Development", teaser:"Through the fog", text:"Many families start to feel like they're 'through the fog' around 12 weeks, though every baby is different."},
+    {icon:"🍼", title:"Feeding", teaser:"Getting more efficient", text:"Feeding gets more efficient and awake windows stretch a little longer — you'll likely know your own baby's cues far better than any generic guide by now."},
+  ]},
+];
+
+const CRYING_REASONS = [
+  {icon:"🍼", reason:"Hungry / due a feed", detail:"The most common reason at this age. Early cues: rooting, hands to mouth, smacking lips — crying is often a late hunger sign. Offer a feed even if it 'shouldn't' be time yet."},
+  {icon:"📈", reason:"Growth spurt", detail:"Sudden runs of wanting to feed much more often (common around 1–3 weeks, 6 weeks, 3 months). Feeding 'on demand' through it settles supply within a few days."},
+  {icon:"😴", reason:"Overtired", detail:"Newborns often manage only 45–90 minutes awake before they need to sleep again. Overtired crying can look like fighting sleep rather than wanting it — a calm, low-stimulation wind-down often helps more than more activity."},
+  {icon:"🧷", reason:"Needs a nappy change", detail:"Quick to check and quick to fix."},
+  {icon:"🤗", reason:"Wants to be held", detail:"Newborns are wired to want closeness — skin-to-skin, gentle motion, or being worn/carried is a legitimate need, not a bad habit."},
+  {icon:"💨", reason:"Wind or tummy ache", detail:"Often shows as drawing knees up, arching, or grimacing. Try upright winding after feeds, or a gentle bicycle-leg motion."},
+  {icon:"🌡️", reason:"Too hot or cold", detail:"Check the back of baby's neck or chest — hands and feet are normally cooler and aren't a reliable guide."},
+  {icon:"✨", reason:"Overstimulated", detail:"Bright lights, noise, or too much handling/visitors can tip a baby into inconsolable crying. A quiet, dim room can help more than trying to soothe harder."},
+  {icon:"😣", reason:"Reflux or colic", detail:"Crying that's intense, often evenings, hard to soothe, sometimes with arching or spitting up. Common and usually improves by 3–4 months — mention it to your health visitor or GP if it's frequent or affecting feeding/weight."},
+];
+
+const SUPPORT = {
+  mum: [
+    {name:"PANDAS Foundation", desc:"Free WhatsApp support for pre- and postnatal mental illness, for parents and partners.", contact:"WhatsApp 07903 508334 · Mon–Fri 9am–5pm (excl. bank holidays)", url:"https://pandasfoundation.org.uk/"},
+    {name:"Mind — postnatal & perinatal mental health", desc:"Information and contacts on postnatal depression and perinatal mental illness.", contact:"", url:"https://www.mind.org.uk/information-support/types-of-mental-health-problems/postnatal-depression-and-perinatal-mental-health/"},
+    {name:"Your health visitor or GP", desc:"Ask to be screened for postnatal depression/anxiety at any point — you don't need to wait for your 6-week check.", contact:"", url:""},
+  ],
+  dad: [
+    {name:"PANDAS Foundation — support for dads", desc:"Same free WhatsApp service, with volunteers experienced in supporting fathers and partners.", contact:"WhatsApp 07903 508334 · Mon–Fri 9am–5pm (excl. bank holidays)", url:"https://pandasfoundation.org.uk/how-we-can-support-you/support-for-dads/"},
+    {name:"Home-Start", desc:"Local family support and peer volunteers for families with young children.", contact:"", url:"https://www.home-start.org.uk/"},
+    {name:"Mind — postnatal & perinatal mental health", desc:"Partners and dads can experience postnatal depression too — it's under-recognised and under-diagnosed.", contact:"", url:"https://www.mind.org.uk/information-support/types-of-mental-health-problems/postnatal-depression-and-perinatal-mental-health/"},
+  ],
+  general: [
+    {name:"Samaritans", desc:"Free, 24/7, confidential support if things feel overwhelming — you don't need to be in crisis to call.", contact:"116 123", url:"https://www.samaritans.org/"},
+    {name:"NHS 111", desc:"For urgent (non-emergency) health worries about you or baby, day or night.", contact:"Call 111", url:"https://111.nhs.uk/"},
+  ]
+};
+
+// ---------- Age / week helpers ----------
+function ageWords(days){
+  const weeks = Math.floor(days/7);
+  const remDays = days % 7;
+  if(weeks === 0) return `${days} day${days===1?'':'s'} old`;
+  return `${weeks} week${weeks===1?'':'s'}, ${remDays} day${remDays===1?'':'s'} old`;
+}
+function isPremature(baby){
+  return !!(baby && baby.gestationWeeks && parseFloat(baby.gestationWeeks) > 0 && parseFloat(baby.gestationWeeks) < 37);
+}
+function adjustedDaysFor(baby, dateStr){
+  const gw = parseFloat(baby.gestationWeeks);
+  const daysEarly = Math.round((40-gw)*7);
+  return daysBetween(baby.dob, dateStr) - daysEarly;
+}
+function ageString(baby){
+  if(!baby || !baby.dob) return "";
+  const days = daysBetween(baby.dob, todayStr());
+  if(days < 0) return "Due " + fmtDate(baby.dob);
+  let base = days === 0 ? "Born today 🎉" : ageWords(days);
+  if(isPremature(baby)){
+    const adj = adjustedDaysFor(baby, todayStr());
+    base += adj >= 0 ? ` · adjusted age: ${ageWords(adj)}` : ` · adjusted age: not yet at due date`;
+  }
+  return base;
+}
+function currentWeekIdx(){
+  if(!state.baby || !state.baby.dob) return 0;
+  let days = daysBetween(state.baby.dob, todayStr());
+  if(isPremature(state.baby)) days = Math.max(adjustedDaysFor(state.baby, todayStr()), 0);
+  const week = Math.floor(days/7);
+  if(week <= 0) return 0;
+  if(week === 1) return 1;
+  if(week <= 3) return 2;
+  if(week <= 5) return 3;
+  if(week <= 7) return 4;
+  return 5;
+}
+function renderHeader(){
+  document.getElementById('babyHeader').textContent = state.baby && state.baby.name ? state.baby.name : "Newborn Companion";
+  document.getElementById('ageLine').textContent = state.baby && state.baby.dob ? ageString(state.baby) : "Set up baby's details in Settings";
+}
+
+// ---------- Dashboard ----------
+function renderDashboard(){
+  const el = document.getElementById('tab-dashboard');
+  if(!state.baby || !state.baby.dob){
+    el.innerHTML = `<div class="card">
+      <h2>Welcome 👋</h2>
+      <p class="small">Add baby's name and date of birth to get a running age, this week's guidance, and to start logging appointments and health checks.</p>
+      <button onclick="NC.goTab('settings')">Set up baby's details</button>
+    </div>`;
+    return;
+  }
+  const days = daysBetween(state.baby.dob, todayStr());
+  const upcoming = state.appointments.filter(a=>a.date >= todayStr()).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  const weights = state.healthLogs.filter(h=>h.type==='weight').sort((a,b)=>a.date.localeCompare(b.date));
+  const lastWeight = weights[weights.length-1];
+  const wk = WEEK_GUIDE[currentWeekIdx()];
+  const activity = buildActivityFeed(6);
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="hero-age">Day ${Math.max(days,0)}</div>
+      <div class="hero-sub">${wk.range} — ${wk.tag}</div>
+    </div>
+    <div class="qa-grid">
+      <button class="qa-btn" onclick="NC.editHealth(null,'weight')"><span class="ic">📈</span><span class="t">Log weight</span></button>
+      <button class="qa-btn" onclick="NC.editAppointment(null)"><span class="ic">📅</span><span class="t">Add appt</span></button>
+      <button class="qa-btn" onclick="NC.openCryingSheet()"><span class="ic">😢</span><span class="t">Why crying?</span></button>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-tile" onclick="NC.goTab('appointments')">
+        <div class="label">Next appointment</div>
+        ${upcoming ? `<div class="value">${fmtShort(upcoming.date)}</div><div class="sub">${upcoming.type}</div>` : `<div class="value">—</div><div class="sub">Nothing booked</div>`}
+      </div>
+      <div class="stat-tile" onclick="NC.goTab('health')">
+        <div class="label">Last weight</div>
+        ${lastWeight ? `<div class="value">${lastWeight.value} ${lastWeight.unit}</div><div class="sub">${fmtShort(lastWeight.date)}</div>` : `<div class="value">—</div><div class="sub">Log a weigh-in</div>`}
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <h2>Recent activity</h2>
+      ${activity.length ? activity.map(a=>`
+        <button class="activity-item" onclick="${a.onClick||''}">
+          <div class="activity-ic" style="background:${a.bg};">${a.icon}</div>
+          <div class="activity-body">
+            <div class="activity-title">${a.title}</div>
+            <div class="activity-sub">${escapeHtml(a.sub||'')}</div>
+          </div>
+          <div class="activity-date">${fmtShort(a.date)}</div>
+        </button>`).join('') : `<div class="empty">Nothing logged yet — add an appointment or a weight check to get started.</div>`}
+    </div>
+    <div class="card">
+      <h2>This week</h2>
+      <div class="topic-grid">
+        ${wk.topics.slice(0,4).map((t,i)=>`
+          <button class="topic-card" onclick="NC.openTopic('${wk.key}',${i})">
+            <span class="ic">${t.icon}</span>
+            <span class="t">${t.title}</span>
+            <span class="teaser">${t.teaser}</span>
+          </button>`).join('')}
+      </div>
+      <div class="actions-row"><button class="ghost" onclick="NC.goTab('guide')">See full week-by-week guide →</button></div>
+    </div>
+    <button class="qa-btn" style="width:100%; flex-direction:row; justify-content:center;" onclick="NC.goTab('support')">
+      <span class="ic">💛</span><span class="t">Not coping today? Find support →</span>
+    </button>
+  `;
+}
+
+function buildActivityFeed(limit){
+  const items = [];
+  state.appointments.forEach(a=>items.push({
+    id:a.id, date:a.date, icon:'📅', bg:'var(--c-appt-bg)',
+    title:a.title || a.type, sub:a.notes ? a.notes : `${a.type} appointment`,
+    onClick:`NC.editAppointment('${a.id}')`,
+  }));
+  state.healthLogs.forEach(h=>items.push({
+    id:h.id, date:h.date, icon:'📈', bg:'var(--c-health-bg)',
+    title:`${h.type[0].toUpperCase()+h.type.slice(1)}: ${h.value}${h.unit?' '+h.unit:''}`, sub:h.notes||'',
+    onClick:`NC.editHealth('${h.id}')`,
+  }));
+  items.sort((a,b)=> b.date===a.date ? (a.id<b.id?1:-1) : b.date.localeCompare(a.date));
+  return items.slice(0, limit||6);
+}
+window.NC = window.NC || {};
+
+// ---------- Appointments ----------
+function renderAppointments(){
+  const el = document.getElementById('tab-appointments');
+  const sorted = [...state.appointments].sort((a,b)=>a.date.localeCompare(b.date));
+  const upcoming = sorted.filter(a=>a.date>=todayStr());
+  const past = sorted.filter(a=>a.date<todayStr()).reverse();
+  function item(a){
+    return `<div class="list-item">
+      <div class="row"><strong>${a.title || a.type}</strong><span class="chip type-${a.type.replace(/\s/g,'-')}">${a.type}</span></div>
+      <div class="small muted">${fmtDate(a.date)}${a.time? ' · '+a.time:''}</div>
+      ${a.notes ? `<div class="small" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(a.notes)}</div>` : ''}
+      <div class="actions-row">
+        <button class="ghost" onclick="NC.editAppointment('${a.id}')">Edit</button>
+        <button class="ghost" onclick="NC.deleteAppointment('${a.id}')">Delete</button>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <h2>Appointments <button class="btn-add" onclick="NC.editAppointment(null)">+ Add</button></h2>
+      <h3 class="muted" style="margin-top:14px;">Upcoming</h3>
+      ${upcoming.length? upcoming.map(item).join('') : '<div class="empty">Nothing upcoming.</div>'}
+      ${past.length? `<h3 class="muted" style="margin-top:16px;">Past</h3>${past.map(item).join('')}`:''}
+    </div>
+  `;
+}
+NC.editAppointment = function(id){
+  const a = id ? state.appointments.find(x=>x.id===id) : {id:uid(), date:todayStr(), time:'', type:'Midwife', title:'', notes:''};
+  showModal(`
+    <div class="modal-icon" style="background:var(--c-appt-bg);">📅</div>
+    <h2>${id? 'Edit':'Add'} appointment</h2>
+    <label for="a_type">Type</label>
+    <select id="a_type">
+      ${['Midwife','Health Visitor','Hospital','GP','Other'].map(t=>`<option value="${t}" ${a.type===t?'selected':''}>${t}</option>`).join('')}
+    </select>
+    <div class="grid2">
+      <div><label for="a_date">Date</label><input type="date" id="a_date" value="${a.date}"></div>
+      <div><label for="a_time">Time (optional)</label><input type="time" id="a_time" value="${a.time||''}"></div>
+    </div>
+    <label for="a_title">Title (optional)</label>
+    <input id="a_title" placeholder="e.g. Day 5 weight check" value="${a.title? escapeAttr(a.title):''}">
+    <label for="a_notes">What was said / notes</label>
+    <textarea id="a_notes" placeholder="Key points from the appointment, any advice given, follow-ups...">${a.notes?escapeHtml(a.notes):''}</textarea>
+    <div class="actions-row">
+      <button onclick="NC.saveAppointment('${a.id}')">Save</button>
+      ${id?'<button class="danger" onclick="NC.deleteAppointment(\''+a.id+'\')">Delete</button>':''}
+      <button class="secondary" onclick="NC.closeModal()">Cancel</button>
+    </div>
+  `);
+};
+NC.saveAppointment = function(id){
+  const data = {
+    id, type: document.getElementById('a_type').value,
+    date: document.getElementById('a_date').value || todayStr(),
+    time: document.getElementById('a_time').value,
+    title: document.getElementById('a_title').value.trim(),
+    notes: document.getElementById('a_notes').value.trim(),
+  };
+  const idx = state.appointments.findIndex(x=>x.id===id);
+  if(idx>=0) state.appointments[idx]=data; else state.appointments.push(data);
+  save(); NC.closeModal(); renderAppointments(); renderDashboard();
+};
+NC.deleteAppointment = function(id){
+  state.appointments = state.appointments.filter(x=>x.id!==id);
+  save(); NC.closeModal(); renderAppointments(); renderDashboard();
+};
+
+// ---------- Health (Data) tab with charts ----------
+const HEALTH_METRICS = [
+  {key:'weight', label:'Weight', unit:'kg'},
+  {key:'jaundice', label:'Jaundice', unit:'µmol/L'},
+  {key:'temperature', label:'Temperature', unit:'°C'},
+  {key:'other', label:'Other', unit:''},
+];
+function getActiveMetric(){ return localStorage.getItem('nc_health_metric') || 'weight'; }
+function setActiveMetric(k){ localStorage.setItem('nc_health_metric', k); }
+
+function niceStep(rough){
+  const pow = Math.pow(10, Math.floor(Math.log10(rough||1)));
+  const n = rough/pow;
+  let step;
+  if(n<=1) step=1; else if(n<=2) step=2; else if(n<=5) step=5; else step=10;
+  return step*pow;
+}
+function niceTicks(min,max,count){
+  if(min===max){ min -= 1; max += 1; }
+  const range = max-min;
+  const step = niceStep(range/(count-1));
+  const niceMin = Math.floor(min/step)*step;
+  const niceMax = Math.ceil(max/step)*step;
+  const ticks = [];
+  for(let v=niceMin; v<=niceMax+1e-9; v+=step) ticks.push(Math.round(v*1000)/1000);
+  return ticks;
+}
+
+function buildChart(entries, metric){
+  const W=580,H=210,padL=42,padR=14,padT=18,padB=28;
+  const vals = entries.map(e=>parseFloat(e.value));
+  const dates = entries.map(e=>new Date(e.date+"T00:00:00").getTime());
+  let refWeight = null, band = null;
+  if(metric==='weight' && state.baby && state.baby.birthWeight){
+    refWeight = parseFloat(state.baby.birthWeight);
+  }
+  let allVals = vals.slice();
+  if(refWeight!=null) allVals.push(refWeight);
+  const min = Math.min(...allVals), max = Math.max(...allVals);
+  const pad = (max-min)*0.15 || Math.max(max*0.1,1);
+  const ticks = niceTicks(min-pad, max+pad, 4);
+  const yMin = ticks[0], yMax = ticks[ticks.length-1];
+  const dMin = Math.min(...dates), dMax = Math.max(...dates);
+  const xOf = (d)=> dates.length>1 && dMax>dMin ? padL + ((d-dMin)/(dMax-dMin))*(W-padL-padR) : (W-padL-padR)/2+padL;
+  const yOf = (v)=> H-padB - ((v-yMin)/(yMax-yMin))*(H-padT-padB);
+
+  let svg = `<svg class="chart-wrap" viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">`;
+
+  // regain band for weight
+  if(metric==='weight' && state.baby && state.baby.dob && dates.length){
+    const dobMs = new Date(state.baby.dob+"T00:00:00").getTime();
+    const bandStart = dobMs + 14*86400000, bandEnd = dobMs + 21*86400000;
+    if(bandEnd >= dMin - 3*86400000 && bandStart <= dMax + 3*86400000){
+      const x1 = Math.max(padL, xOf(Math.max(bandStart,dMin)));
+      const x2 = Math.min(W-padR, xOf(Math.min(bandEnd,dMax)));
+      if(x2>x1){
+        svg += `<rect x="${x1.toFixed(1)}" y="${padT}" width="${(x2-x1).toFixed(1)}" height="${H-padT-padB}" fill="var(--c-health-fg)" opacity="0.08"/>`;
+        svg += `<text x="${((x1+x2)/2).toFixed(1)}" y="${H-padB-6}" font-size="8" fill="var(--c-health-fg)" text-anchor="middle" font-weight="700">REGAIN WINDOW</text>`;
+      }
+    }
+  }
+
+  // gridlines + y labels
+  ticks.forEach(t=>{
+    const y = yOf(t);
+    svg += `<line x1="${padL}" x2="${W-padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+    svg += `<text x="${padL-8}" y="${(y+3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end">${t}</text>`;
+  });
+
+  // reference line for birth weight
+  if(refWeight!=null){
+    const y = yOf(refWeight);
+    svg += `<line x1="${padL}" x2="${W-padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3,3"/>`;
+    svg += `<text x="${W-padR}" y="${(y-4).toFixed(1)}" font-size="8.5" fill="var(--muted)" text-anchor="end">birth weight</text>`;
+  }
+
+  if(entries.length>=1){
+    // area + line
+    if(entries.length>=2){
+      let path = entries.map((e,i)=>`${i===0?'M':'L'}${xOf(dates[i]).toFixed(1)},${yOf(vals[i]).toFixed(1)}`).join(' ');
+      let area = path + ` L${xOf(dates[dates.length-1]).toFixed(1)},${H-padB} L${xOf(dates[0]).toFixed(1)},${H-padB} Z`;
+      svg += `<path d="${area}" fill="var(--c-health-fg)" opacity="0.10" stroke="none"/>`;
+      svg += `<path d="${path}" fill="none" stroke="var(--c-health-fg)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    }
+    // markers (tap targets)
+    entries.forEach((e,i)=>{
+      const x=xOf(dates[i]), y=yOf(vals[i]);
+      svg += `<circle class="metric-point" data-idx="${i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="14" fill="transparent"/>`;
+      svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="var(--c-health-fg)" stroke="var(--card)" stroke-width="2"/>`;
+    });
+    // direct label at last point
+    const lastI = entries.length-1;
+    const lx = xOf(dates[lastI]), ly = yOf(vals[lastI]);
+    const labelY = ly<padT+16 ? ly+16 : ly-10;
+    svg += `<text x="${lx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="11" font-weight="800" fill="var(--ink)" text-anchor="${lx>W-70?'end':'middle'}">${entries[lastI].value}${metric==='weight'?'':''}</text>`;
+    // x labels first/last
+    svg += `<text x="${padL}" y="${H-8}" font-size="9" fill="var(--muted)" text-anchor="start">${fmtShort(entries[0].date)}</text>`;
+    if(entries.length>1){
+      svg += `<text x="${W-padR}" y="${H-8}" font-size="9" fill="var(--muted)" text-anchor="end">${fmtShort(entries[lastI].date)}</text>`;
+    }
+  }
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderHealth(){
+  const el = document.getElementById('tab-health');
+  const active = getActiveMetric();
+  const metric = HEALTH_METRICS.find(m=>m.key===active) || HEALTH_METRICS[0];
+  const entries = state.healthLogs.filter(h=>h.type===metric.key).sort((a,b)=>a.date.localeCompare(b.date));
+  const last = entries[entries.length-1];
+  const prev = entries[entries.length-2];
+
+  let chartBlock;
+  if(entries.length===0){
+    chartBlock = `<div class="empty">No ${metric.label.toLowerCase()} entries yet. Tap + Add to log the first one.</div>`;
+  } else {
+    chartBlock = `
+      <div class="row" style="align-items:flex-start; margin-bottom:8px;">
+        <div>
+          <div style="font-size:1.5rem; font-weight:800;">${last.value}<span class="small muted" style="font-weight:700;"> ${last.unit||metric.unit}</span></div>
+          ${prev && metric.key==='weight' ? `<div class="small muted">${(parseFloat(last.value)-parseFloat(prev.value)>=0?'+':'')}${(parseFloat(last.value)-parseFloat(prev.value)).toFixed(2)} kg since ${fmtShort(prev.date)}</div>` : `<div class="small muted">${fmtDate(last.date)}</div>`}
+        </div>
+      </div>
+      ${buildChart(entries, metric.key)}
+      <div class="chart-readout" id="chartReadout">Tap a point to see its value</div>
+    `;
+  }
+
+  el.innerHTML = `
+    <div class="card">
+      <h2>Data <button class="btn-add" onclick="NC.editHealth(null)">+ Add</button></h2>
+      <div class="segmented" id="metricSeg">
+        ${HEALTH_METRICS.map(m=>`<button class="seg-btn mode-health ${m.key===active?'active':''}" data-m="${m.key}">${m.label}</button>`).join('')}
+      </div>
+      ${chartBlock}
+    </div>
+    <div class="card">
+      <h2>${metric.label} log</h2>
+      ${entries.length? [...entries].reverse().map(h=>`
+        <div class="list-item">
+          <div class="row"><strong>${h.value} ${h.unit||''}</strong><span class="small muted">${fmtDate(h.date)}</span></div>
+          ${h.notes? `<div class="small" style="margin-top:4px;">${escapeHtml(h.notes)}</div>`:''}
+          <div class="actions-row">
+            <button class="ghost" onclick="NC.editHealth('${h.id}')">Edit</button>
+            <button class="ghost" onclick="NC.deleteHealth('${h.id}')">Delete</button>
+          </div>
+        </div>`).join('') : `<div class="empty">Nothing logged for ${metric.label.toLowerCase()} yet.</div>`}
+    </div>
+  `;
+  el.querySelectorAll('#metricSeg button').forEach(b=>{
+    b.onclick = ()=>{ setActiveMetric(b.dataset.m); renderHealth(); };
+  });
+  el.querySelectorAll('.metric-point').forEach(p=>{
+    p.addEventListener('click', ()=>{
+      const idx = parseInt(p.dataset.idx,10);
+      const e = entries[idx];
+      const r = document.getElementById('chartReadout');
+      if(r) r.innerHTML = `<span class="d">${fmtDate(e.date)}:</span> ${e.value} ${e.unit||metric.unit}`;
+    });
+  });
+}
+NC.editHealth = function(id, presetType){
+  const active = presetType || getActiveMetric();
+  const h = id ? state.healthLogs.find(x=>x.id===id) : {id:uid(), date:todayStr(), type:active, value:'', unit: (HEALTH_METRICS.find(m=>m.key===active)||{}).unit || '', notes:''};
+  showModal(`
+    <div class="modal-icon" style="background:var(--c-health-bg);">📈</div>
+    <h2>${id?'Edit':'Add'} data entry</h2>
+    <label for="h_type">Type</label>
+    <select id="h_type">
+      ${[['weight','Weight'],['jaundice','Jaundice level (bilirubin)'],['temperature','Temperature'],['other','Other']].map(([v,l])=>`<option value="${v}" ${h.type===v?'selected':''}>${l}</option>`).join('')}
+    </select>
+    <div class="grid2">
+      <div><label for="h_value">Value</label><input id="h_value" value="${h.value}" inputmode="decimal"></div>
+      <div><label for="h_unit">Unit</label><input id="h_unit" value="${h.unit||''}" placeholder="kg, µmol/L, °C..."></div>
+    </div>
+    <label for="h_date">Date</label><input type="date" id="h_date" value="${h.date}">
+    <label for="h_notes">Notes</label><textarea id="h_notes" placeholder="Context, who measured it, anything said about it...">${h.notes?escapeHtml(h.notes):''}</textarea>
+    <div class="actions-row">
+      <button onclick="NC.saveHealth('${h.id}')">Save</button>
+      ${id?'<button class="danger" onclick="NC.deleteHealth(\''+h.id+'\')">Delete</button>':''}
+      <button class="secondary" onclick="NC.closeModal()">Cancel</button>
+    </div>
+  `);
+};
+NC.saveHealth = function(id){
+  const type = document.getElementById('h_type').value;
+  const data = {
+    id, type,
+    value: document.getElementById('h_value').value.trim(),
+    unit: document.getElementById('h_unit').value.trim(),
+    date: document.getElementById('h_date').value || todayStr(),
+    notes: document.getElementById('h_notes').value.trim(),
+  };
+  const idx = state.healthLogs.findIndex(x=>x.id===id);
+  if(idx>=0) state.healthLogs[idx]=data; else state.healthLogs.push(data);
+  setActiveMetric(type);
+  save(); NC.closeModal(); renderHealth(); renderDashboard();
+};
+NC.deleteHealth = function(id){
+  state.healthLogs = state.healthLogs.filter(x=>x.id!==id);
+  save(); NC.closeModal(); renderHealth(); renderDashboard();
+};
+
+// ---------- Guide ----------
+function renderGuide(){
+  const el = document.getElementById('tab-guide');
+  const active = localStorage.getItem('nc_guide_week') || WEEK_GUIDE[currentWeekIdx()].key;
+  const wk = WEEK_GUIDE.find(w=>w.key===active) || WEEK_GUIDE[0];
+  el.innerHTML = `
+    <div class="card">
+      <h2>Week by week</h2>
+      <p class="small muted" style="margin-top:-6px;">General patterns, not a prediction for your baby specifically.${isPremature(state.baby)?' Showing adjusted age (from your due date), since that tracks development better for babies born early.':''}</p>
+      <div class="segmented" id="weekSeg">
+        ${WEEK_GUIDE.map(w=>`<button class="seg-btn mode-guide ${w.key===active?'active':''}" data-w="${w.key}">${w.chip}</button>`).join('')}
+      </div>
+      <h3 style="margin-bottom:2px;">${wk.range}</h3>
+      <div class="small muted" style="margin-bottom:12px;">${wk.tag}</div>
+      <div class="topic-grid">
+        ${wk.topics.map((t,i)=>`
+          <button class="topic-card" onclick="NC.openTopic('${wk.key}',${i})">
+            <span class="ic">${t.icon}</span>
+            <span class="t">${t.title}</span>
+            <span class="teaser">${t.teaser}</span>
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Why might they be crying?</h2>
+      <p class="small muted" style="margin-top:-6px;">Crying is communication, not a problem to eliminate. Tap a card for more.</p>
+      <div class="cry-grid">
+        ${CRYING_REASONS.map((r,i)=>`
+          <button class="cry-card" onclick="NC.openCry(${i})">
+            <span class="ic">${r.icon}</span><span>${r.reason}</span>
+          </button>`).join('')}
+      </div>
+      <div class="actions-row"><button class="ghost" onclick="NC.openCryingSheet()">See red-flag symptoms →</button></div>
+    </div>
+  `;
+  el.querySelectorAll('#weekSeg button').forEach(b=>{
+    b.onclick = ()=>{ localStorage.setItem('nc_guide_week', b.dataset.w); renderGuide(); };
+  });
+}
+NC.openTopic = function(weekKey, idx){
+  const wk = WEEK_GUIDE.find(w=>w.key===weekKey);
+  const t = wk.topics[idx];
+  showModal(`
+    <div class="modal-icon" style="background:var(--c-guide-bg);">${t.icon}</div>
+    <h2>${t.title} — <span class="muted" style="font-weight:600; font-size:0.85em;">${wk.range}</span></h2>
+    <p>${t.text}</p>
+    <div class="actions-row"><button class="secondary" onclick="NC.closeModal()">Close</button></div>
+  `);
+};
+
+// ---------- Crying decoder ----------
+NC.openCry = function(i){
+  const r = CRYING_REASONS[i];
+  showModal(`
+    <div class="modal-icon" style="background:var(--c-cry-bg);">${r.icon}</div>
+    <h2>${r.reason}</h2>
+    <p>${r.detail}</p>
+    <div class="actions-row"><button class="secondary" onclick="NC.closeModal()">Close</button></div>
+  `);
+};
+NC.openCryingSheet = function(){
+  showModal(`
+    <div class="modal-icon" style="background:var(--c-cry-bg);">😢</div>
+    <h2>Why might they be crying?</h2>
+    <div class="redflag">
+      <h3>Get help now if...</h3>
+      <p class="small">Baby has a fever (38°C+) and is under 3 months old, is unusually floppy/drowsy or hard to wake, has breathing difficulty, won't feed at all, has a rash that doesn't fade under a glass, or jaundice that's getting worse or spreading. Call <strong>111</strong>, or <strong>999</strong> / A&E if it feels like an emergency.</p>
+    </div>
+    <div class="cry-grid">
+      ${CRYING_REASONS.map((r,i)=>`
+        <button class="cry-card" onclick="NC.openCry(${i})">
+          <span class="ic">${r.icon}</span><span>${r.reason}</span>
+        </button>`).join('')}
+    </div>
+    <div class="actions-row" style="margin-top:12px;"><button class="secondary" onclick="NC.closeModal()">Close</button></div>
+  `);
+};
+
+// ---------- Support ----------
+function renderSupport(){
+  const el = document.getElementById('tab-support');
+  function orgList(list){
+    return list.map(o=>`<div class="support-org"><strong>${o.name}</strong>${o.contact? ' — '+o.contact:''}<div class="small muted">${o.desc}</div>${o.url? `<div class="small"><a href="${o.url}" target="_blank" rel="noopener">${o.url.replace('https://','')}</a></div>`:''}</div>`).join('');
+  }
+  el.innerHTML = `
+    <div class="redflag">
+      <h3>If you're not safe right now</h3>
+      <p class="small">If you're having thoughts of harming yourself or your baby, or think you or your partner may be showing signs of postpartum psychosis (confusion, hallucinations, mania, feeling out of touch with reality) — this is an emergency. Call <strong>999</strong> or go to A&E.</p>
+    </div>
+    <div class="card"><h2>For Mum</h2>${orgList(SUPPORT.mum)}</div>
+    <div class="card"><h2>For Dad</h2>${orgList(SUPPORT.dad)}</div>
+    <div class="card"><h2>General</h2>${orgList(SUPPORT.general)}</div>
+    <div class="card"><h3>Worth knowing</h3><p class="small">The "baby blues" (tearfulness, overwhelm) in the first ~2 weeks are very common and usually pass on their own. Feeling low, anxious, or numb for longer than that — in either parent — is worth mentioning to a health visitor or GP. It's common, treatable, and not a reflection of you as a parent.</p></div>
+  `;
+}
+
+// ---------- Settings ----------
+function renderSettings(){
+  const el = document.getElementById('tab-settings');
+  const b = state.baby || {name:'', dob:'', birthWeight:'', gestationWeeks:''};
+  el.innerHTML = `
+    <div class="card">
+      <h2>Baby's details</h2>
+      <label for="s_name">Name</label><input id="s_name" value="${b.name?escapeAttr(b.name):''}" placeholder="Baby's name">
+      <label for="s_dob">Date of birth</label><input type="date" id="s_dob" value="${b.dob||''}">
+      <label for="s_weight">Birth weight (optional)</label>
+      <div class="grid2">
+        <input id="s_weight" value="${b.birthWeight||''}" inputmode="decimal" placeholder="e.g. 3.4" aria-label="Birth weight">
+        <select id="s_weightUnit" aria-label="Weight unit"><option value="kg" ${b.weightUnit!=='lb'?'selected':''}>kg</option><option value="lb" ${b.weightUnit==='lb'?'selected':''}>lb</option></select>
+      </div>
+      <label for="s_gestation">Born early? Gestational age at birth, in weeks (optional)</label>
+      <input id="s_gestation" value="${b.gestationWeeks||''}" inputmode="decimal" placeholder="e.g. 34 — leave blank if born at term">
+      <p class="small muted" style="margin-top:6px;">If under 37 weeks, we'll also show an adjusted age (from your due date) and use it for the week-by-week guide — appointment timing (heel prick, checks) still follows your neonatal team's own schedule, not this.</p>
+      <div class="actions-row"><button onclick="NC.saveBaby()">Save</button></div>
+    </div>
+    <div class="card">
+      <h2>Your data</h2>
+      <p class="small muted">Everything is stored only on this device (browser local storage) — nothing is sent anywhere. Back up regularly by exporting, especially before clearing browser data or switching phones.</p>
+      <div class="actions-row">
+        <button class="secondary" onclick="NC.exportData()">Export backup (.json)</button>
+        <label class="btn secondary" style="text-align:center;">Import backup<input type="file" accept=".json" style="display:none" onchange="NC.importData(event)"></label>
+      </div>
+      <div class="actions-row">
+        <button class="danger" onclick="NC.clearAll()">Erase all data</button>
+      </div>
+    </div>
+    <div class="card small muted">
+      Newborn Companion — a private, local-only tracker. Not affiliated with the NHS. Information sourced from general NHS public guidance; always defer to your own midwife, health visitor and GP.
+    </div>
+  `;
+}
+NC.saveBaby = function(){
+  state.baby = {
+    name: document.getElementById('s_name').value.trim(),
+    dob: document.getElementById('s_dob').value,
+    birthWeight: document.getElementById('s_weight').value.trim(),
+    weightUnit: document.getElementById('s_weightUnit').value,
+    gestationWeeks: document.getElementById('s_gestation').value.trim(),
+  };
+  save(); renderAll();
+  NC.goTab('dashboard');
+};
+NC.exportData = function(){
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `newborn-companion-backup-${todayStr()}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+NC.importData = function(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    try{
+      const parsed = JSON.parse(reader.result);
+      if(!parsed || typeof parsed !== 'object') throw new Error('bad file');
+      state = Object.assign({baby:null, appointments:[], healthLogs:[]}, parsed);
+      save(); renderAll();
+      alert('Backup imported.');
+    }catch(e){ alert('Could not read that file as a valid backup.'); }
+  };
+  reader.readAsText(file);
+};
+NC.clearAll = function(){
+  if(confirm('This will permanently erase all data from this device. Export a backup first if you want to keep it. Continue?')){
+    state = {baby:null, appointments:[], healthLogs:[]};
+    save(); renderAll();
+  }
+};
+
+// ---------- Search ----------
+function searchIndex(){
+  const items = [];
+  state.appointments.forEach(a=>{
+    const text = [a.type,a.title,a.notes,fmtDate(a.date)].join(' ').toLowerCase();
+    items.push({date:a.date, icon:'📅', title:a.title||a.type, sub:a.notes||`${a.type} appointment`, text, onClick:`NC.editAppointment('${a.id}')`});
+  });
+  state.healthLogs.forEach(h=>{
+    const label = `${h.type[0].toUpperCase()+h.type.slice(1)}: ${h.value}${h.unit?' '+h.unit:''}`;
+    const text = [h.type,h.value,h.unit,h.notes,fmtDate(h.date)].join(' ').toLowerCase();
+    items.push({date:h.date, icon:'📈', title:label, sub:h.notes||'', text, onClick:`NC.editHealth('${h.id}')`});
+  });
+  items.sort((a,b)=>b.date.localeCompare(a.date));
+  return items;
+}
+NC.openSearch = function(){
+  showModal(`
+    <div class="modal-icon" style="background:var(--accent-soft);">🔍</div>
+    <h2>Search everything</h2>
+    <input id="searchInput" class="search-input" aria-label="Search everything" placeholder="Try 'midwife', 'jaundice', a date, a name...">
+    <div id="searchResults" style="margin-top:10px;"></div>
+  `);
+  const input = document.getElementById('searchInput');
+  const renderResults = ()=>{
+    const q = input.value.trim().toLowerCase();
+    const all = searchIndex();
+    if(!all.length){
+      document.getElementById('searchResults').innerHTML = `<div class="empty">Nothing logged yet — appointments, weights and check-ins you add will show up here.</div>`;
+      return;
+    }
+    const matches = q ? all.filter(it=>it.text.includes(q)) : all.slice(0,8);
+    const box = document.getElementById('searchResults');
+    if(!matches.length){
+      box.innerHTML = `<div class="empty">No matches for "${escapeHtml(input.value.trim())}".</div>`;
+      return;
+    }
+    box.innerHTML = (q? '' : `<div class="small muted" style="margin-bottom:6px;">Recent</div>`) + matches.map(m=>`
+      <button class="search-result" onclick="${m.onClick||''}">
+        <div class="title">${m.icon} ${escapeHtml(m.title)}</div>
+        <div class="snippet">${fmtDate(m.date)}${m.sub? ' · '+escapeHtml(m.sub):''}</div>
+      </button>`).join('');
+  };
+  input.addEventListener('input', renderResults);
+  renderResults();
+};
+
+// ---------- Modal ----------
+function showModal(html){
+  const body = document.getElementById('modalBody');
+  body.innerHTML = html;
+  document.getElementById('modalBg').classList.add('open');
+  const firstField = body.querySelector('input, textarea, select, button');
+  (firstField || body).focus();
+}
+NC.closeModal = function(){ document.getElementById('modalBg').classList.remove('open'); };
+document.getElementById('modalBg').addEventListener('click', function(e){
+  if(e.target === this) NC.closeModal();
+});
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' && document.getElementById('modalBg').classList.contains('open')) NC.closeModal();
+});
+
+// ---------- Tabs ----------
+NC.goTab = function(name){
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  window.scrollTo(0,0);
+  localStorage.setItem('nc_last_tab', name);
+};
+document.querySelectorAll('nav.tabs button').forEach(b=>{
+  b.addEventListener('click', ()=>NC.goTab(b.dataset.tab));
+});
+
+function renderAll(){
+  renderHeader();
+  renderDashboard();
+  renderAppointments();
+  renderHealth();
+  renderGuide();
+  renderSupport();
+  renderSettings();
+}
+renderAll();
+const lastTab = localStorage.getItem('nc_last_tab');
+if(lastTab && document.getElementById('tab-'+lastTab)) NC.goTab(lastTab);
+
+})();
+</script>
+</body>
+</html>
