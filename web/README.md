@@ -92,10 +92,31 @@ exactly once), and go from there.
 
 ### 5. Deploy
 
-Vercel is the natural fit for a Next.js app — connect the repo, set the two
-env vars above in the project settings, done. Point it at the `web/`
-subdirectory as the project root if deploying from this monorepo-style
-repo.
+Vercel is the natural fit for a Next.js app. On the "Import Git Repository"
+/ "Configure Project" screen:
+
+- **Root Directory**: click "Edit" and set it to `web`. The app lives in
+  that subfolder, not the repo root — skip this and the build fails or
+  builds the wrong thing.
+- **Branch**: until this branch is merged to `main`, tell Vercel to deploy
+  `claude/app-creation-btj9p8` specifically (either during import, or
+  afterwards in Settings → Git → Production Branch) — `main` doesn't have
+  the `web/` app on it yet.
+- **Environment Variables**: add `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` on this same screen.
+- **Wrong GitHub account/repo showing up?** Vercel only shows repos the
+  GitHub App has been granted access to for whichever account/org you're
+  currently signed into. Check the account switcher (top-left in the
+  Vercel dashboard) is on the right one, and use "Adjust GitHub App
+  Permissions" on the import screen to grant access to this specific repo
+  under your personal GitHub account if it's not showing up.
+- **Landed on a page that mentions Vercel and asks you to log in, instead
+  of the app?** That's Vercel's own "Deployment Protection" — team/
+  workspace accounts often have this on by default for every deployment,
+  requiring a Vercel login before anyone (including family) can view it.
+  Turn it off (or restrict it to preview deployments only) in Project
+  Settings → Deployment Protection, if you want this reachable by people
+  who don't have a Vercel account.
 
 ## Known gaps (by design, for this phase)
 
