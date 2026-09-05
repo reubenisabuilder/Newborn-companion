@@ -1,16 +1,24 @@
 -- Newborn Companion — Phase A schema
 --
 -- Access model: family-code auth-lite via Supabase anonymous auth.
--- Every family-scoped table is gated by get_my_family_ids(), which reads
--- membership from family_members. That's the ONLY seam that changes when
--- this later upgrades to real accounts (email/password or magic link) —
--- these tables and policies do not change shape.
+-- Every family-scoped table is gated by private.get_my_family_ids(), which
+-- reads membership from family_members. That's the ONLY seam that changes
+-- when this later upgrades to real accounts (email/password or magic
+-- link) — these tables and policies do not change shape.
 --
 -- Uniform access: every family_members row has equal rights (no role
 -- tiers) — same model as Huckleberry. Anyone holding the family code has
 -- full read/write access to everything in that family.
 
 create extension if not exists pgcrypto;
+
+-- Helper functions that RLS policies depend on, but that a client should
+-- never be able to call directly as an RPC, live here instead of public.
+-- Do NOT add `private` to Supabase's exposed-schemas setting (Project
+-- Settings -> API) — that's what actually keeps PostgREST from routing
+-- POST /rest/v1/rpc/<fn> to anything in here, on top of the grants below.
+create schema if not exists private;
+grant usage on schema private to authenticated;
 
 -- ---------------------------------------------------------------------
 -- Tables
@@ -35,9 +43,9 @@ create table family_members (
 comment on column family_members.auth_method is
   'Bookkeeping for a future real-accounts migration: distinguishes legacy anonymous-code members from members who joined via real login. Not used by any RLS policy today.';
 
--- Rate limiting for join_family_by_code. requester_key is the caller's IP
--- when available (so minting a fresh anonymous user can''t reset the
--- limit), falling back to auth.uid() otherwise.
+-- Rate limiting for join_family_by_code. requester_key is the first hop of
+-- the caller's IP when available (so minting a fresh anonymous user
+-- can''t reset the limit), falling back to their user id otherwise.
 create table code_attempts (
   id bigint generated always as identity primary key,
   requester_key text not null,
@@ -55,7 +63,10 @@ create table babies (
   weight_unit text not null default 'kg' check (weight_unit in ('kg', 'lb')),
   gestation_weeks numeric,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- Lets appointments/health_logs take a composite FK on (baby_id,
+  -- family_id) so a baby can never be attached to the wrong family.
+  unique (id, family_id)
 );
 create index babies_family_idx on babies (family_id);
 comment on column babies.birth_weight is
@@ -63,39 +74,44 @@ comment on column babies.birth_weight is
 
 create table appointments (
   id uuid primary key default gen_random_uuid(),
-  family_id uuid not null references families(id) on delete cascade,
-  baby_id uuid not null references babies(id) on delete cascade,
+  family_id uuid not null,
+  baby_id uuid not null,
   type text not null default 'Other',
   date date not null,
   time time,
   title text not null default '',
   notes text not null default '',
-  created_by uuid references auth.users(id) default auth.uid(),
+  created_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- Composite FK: baby_id must belong to family_id, not just exist. Without
+  -- this, RLS's family_id check alone would let a member of family A
+  -- attach an appointment to a baby that actually belongs to family B.
+  foreign key (baby_id, family_id) references babies (id, family_id) on delete cascade
 );
 create index appointments_family_baby_date_idx on appointments (family_id, baby_id, date);
 
 create table health_logs (
   id uuid primary key default gen_random_uuid(),
-  family_id uuid not null references families(id) on delete cascade,
-  baby_id uuid not null references babies(id) on delete cascade,
+  family_id uuid not null,
+  baby_id uuid not null,
   type text not null check (type in ('weight', 'jaundice', 'temperature', 'other')),
   value text not null,
   value_numeric numeric,
   unit text not null default '',
   date date not null,
   notes text not null default '',
-  created_by uuid references auth.users(id) default auth.uid(),
+  created_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  foreign key (baby_id, family_id) references babies (id, family_id) on delete cascade
 );
 create index health_logs_family_baby_date_idx on health_logs (family_id, baby_id, date);
 comment on column health_logs.value_numeric is
   'Numeric mirror of value, kept in sync by sync_health_log_numeric(). Null when value doesn''t parse as a number. Exists so charts/insight queries can filter/sort numerically without casting text at query time.';
 
 -- ---------------------------------------------------------------------
--- Triggers: updated_at bookkeeping + value_numeric sync
+-- Triggers: updated_at, value_numeric sync, created_by integrity
 -- ---------------------------------------------------------------------
 
 create or replace function set_updated_at()
@@ -132,11 +148,37 @@ $$;
 create trigger health_logs_sync_numeric before insert or update on health_logs
   for each row execute function sync_health_log_numeric();
 
+-- created_by is not client-settable and not editable after the fact: on
+-- INSERT it's forced to the caller's own uid regardless of what (if
+-- anything) the client supplied; on UPDATE it's pinned to its original
+-- value. A plain column DEFAULT only covers the "client omitted it" case
+-- — a client that explicitly sends someone else's uid would otherwise get
+-- away with it, and the old FOR ALL policy allowed rewriting it later.
+create or replace function protect_created_by()
+returns trigger
+language plpgsql
+security invoker
+as $$
+begin
+  if TG_OP = 'INSERT' then
+    new.created_by := (select auth.uid());
+  elsif TG_OP = 'UPDATE' then
+    new.created_by := old.created_by;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger appointments_protect_created_by before insert or update on appointments
+  for each row execute function protect_created_by();
+create trigger health_logs_protect_created_by before insert or update on health_logs
+  for each row execute function protect_created_by();
+
 -- ---------------------------------------------------------------------
 -- The auth-lite -> real-accounts seam
 -- ---------------------------------------------------------------------
 
-create or replace function get_my_family_ids()
+create or replace function private.get_my_family_ids()
 returns setof uuid
 language sql
 stable
@@ -145,18 +187,19 @@ set search_path = public, pg_catalog, pg_temp
 as $$
   select family_id from public.family_members where user_id = (select auth.uid());
 $$;
-comment on function get_my_family_ids is
-  'The single seam every family-scoped RLS policy reads through. Upgrading to real accounts later only changes how rows get inserted into family_members — this function and every policy built on it stay exactly as-is.';
+comment on function private.get_my_family_ids is
+  'The single seam every family-scoped RLS policy reads through. Upgrading to real accounts later only changes how rows get inserted into family_members — this function and every policy built on it stay exactly as-is. Lives in `private` (not REST-exposed) since a client has no legitimate reason to call this directly — only RLS policies use it, which needs EXECUTE granted but not schema exposure.';
 
-revoke execute on function get_my_family_ids() from public;
-grant execute on function get_my_family_ids() to authenticated;
+revoke execute on function private.get_my_family_ids() from public;
+grant execute on function private.get_my_family_ids() to authenticated;
 
 -- Generates a high-entropy, human-typeable code (grouped 5-5-5-5, ~100
 -- bits of entropy from 20 random bytes) — never a memorable phrase.
 -- Excludes visually ambiguous characters (0/O, 1/I, L).
-create or replace function generate_family_code()
+create or replace function private.generate_family_code()
 returns text
 language plpgsql
+set search_path = public, pg_catalog, pg_temp
 as $$
 declare
   alphabet text := '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
@@ -171,8 +214,10 @@ begin
          substr(code, 11, 5) || '-' || substr(code, 16, 5);
 end;
 $$;
+comment on function private.generate_family_code is
+  'Only ever called internally by create_family() (which runs SECURITY DEFINER as its owner) — never granted to authenticated, since a client has no legitimate reason to generate a code without also creating the family it belongs to.';
 
-revoke execute on function generate_family_code() from public;
+revoke execute on function private.generate_family_code() from public;
 
 create or replace function create_family()
 returns table(family_id uuid, code text)
@@ -190,7 +235,7 @@ begin
     raise exception 'Must be signed in';
   end if;
 
-  v_code := public.generate_family_code();
+  v_code := private.generate_family_code();
   v_normalized := replace(v_code, '-', '');
 
   insert into public.families (code_hash, code_last4)
@@ -228,13 +273,27 @@ begin
     raise exception 'Must be signed in';
   end if;
 
-  -- Prefer the caller's IP so minting a fresh anonymous user can't reset
-  -- the rate limit; fall back to their user id if headers aren't available
-  -- (e.g. local psql testing outside PostgREST).
+  -- Prefer the first hop of the caller's IP (x-forwarded-for can be a
+  -- proxy chain "client, proxy1, proxy2" — only the first entry is the
+  -- original client) so minting a fresh anonymous user can't reset the
+  -- rate limit; fall back to their user id if headers aren't available
+  -- (e.g. local psql testing outside PostgREST). This header is only
+  -- trustworthy because it's set by the trusted infra in front of the
+  -- request (Vercel/Supabase's own edge), not by the client directly.
   v_requester := coalesce(
-    (current_setting('request.headers', true)::json ->> 'x-forwarded-for'),
+    nullif(trim(split_part(
+      current_setting('request.headers', true)::json ->> 'x-forwarded-for',
+      ',', 1
+    )), ''),
     v_uid::text
   );
+
+  -- Serializes concurrent calls for the same requester within this
+  -- transaction, so a burst of parallel guesses can't all read the same
+  -- "9 attempts so far" count and all slip through before any of them
+  -- commits its own attempt row. Released automatically at the end of
+  -- this (PostgREST-managed, per-call) transaction.
+  perform pg_advisory_xact_lock(hashtext(v_requester)::bigint);
 
   -- IMPORTANT: this function must return NULL rather than RAISE on an
   -- expected failure (bad code, rate limited). PostgREST runs each RPC
@@ -282,7 +341,7 @@ begin
 end;
 $$;
 comment on function join_family_by_code is
-  'Returns NULL (not an error) for both a wrong code and a rate-limit trip, so the caller shows one generic message and failed attempts can''t be used to enumerate whether a family exists. Only raises for a genuine error (not signed in).';
+  'Returns NULL (not an error) for both a wrong code and a rate-limit trip, so the caller shows one generic message and failed attempts can''t be used to enumerate whether a family exists. Only raises for a genuine error (not signed in). p_code = NULL falls through this same NULL-returning path by construction (regexp_replace/right on NULL propagate to NULL, so code_last4 matches nothing) — no separate early-exit check needed, and skipping the rate-limit bookkeeping for a NULL/malformed submission would actually be worse, not better.';
 
 revoke execute on function join_family_by_code(text) from public;
 grant execute on function join_family_by_code(text) to authenticated;
@@ -328,26 +387,49 @@ alter table health_logs enable row level security;
 -- families & code_attempts: intentionally NO policies for anon/authenticated.
 -- RLS is enabled with zero permissive policies, which denies all direct
 -- access; the only path in is through the SECURITY DEFINER RPCs above,
--- which bypass RLS as their own privilege.
+-- which bypass RLS as their own privilege. Deliberately no table-level
+-- GRANT for these two either (see grants section below) — belt and braces.
 
 create policy "members can see their family memberships" on family_members
   for select
-  using (family_id in (select get_my_family_ids()));
+  to authenticated
+  using (family_id in (select private.get_my_family_ids()));
 
 -- Uniform full access for every family-scoped table: any member of the
 -- family can read/write/delete anything belonging to that family. No role
 -- tiers by design.
 create policy "family members full access" on babies
   for all
-  using (family_id in (select get_my_family_ids()))
-  with check (family_id in (select get_my_family_ids()));
+  to authenticated
+  using (family_id in (select private.get_my_family_ids()))
+  with check (family_id in (select private.get_my_family_ids()));
 
 create policy "family members full access" on appointments
   for all
-  using (family_id in (select get_my_family_ids()))
-  with check (family_id in (select get_my_family_ids()));
+  to authenticated
+  using (family_id in (select private.get_my_family_ids()))
+  with check (family_id in (select private.get_my_family_ids()));
 
 create policy "family members full access" on health_logs
   for all
-  using (family_id in (select get_my_family_ids()))
-  with check (family_id in (select get_my_family_ids()));
+  to authenticated
+  using (family_id in (select private.get_my_family_ids()))
+  with check (family_id in (select private.get_my_family_ids()));
+
+-- ---------------------------------------------------------------------
+-- Table grants
+-- ---------------------------------------------------------------------
+-- RLS policies decide WHICH rows are visible/writable; they don't by
+-- themselves grant access to the table at all — Postgres still checks
+-- ordinary table privileges first. Explicit here rather than assumed from
+-- a project's default template, so this migration doesn't depend on
+-- Supabase's default grants being what we think they are.
+--
+-- families and code_attempts get NO grant at all: every path to them goes
+-- through the SECURITY DEFINER RPCs above, which run as their owner and
+-- so don't need the calling role to have direct table privileges.
+
+grant select on family_members to authenticated;
+grant select, insert, update, delete on babies to authenticated;
+grant select, insert, update, delete on appointments to authenticated;
+grant select, insert, update, delete on health_logs to authenticated;

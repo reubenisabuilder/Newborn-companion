@@ -12,10 +12,18 @@ unaffected and still works standalone.
 Everything in this directory has been written, typechecked, linted, and
 production-built successfully. The schema and RPCs in
 `supabase/migrations/0001_init.sql` have been **run against a real
-Postgres instance** (with a stub of Supabase's `auth` schema) and verified:
-family data isolation (read, direct-ID lookup, and write), the join-by-code
-RPC, wrong-code handling, rate limiting, and family deletion all behave as
-designed — see the migration file's comments for what each policy is for.
+Postgres instance** (with a stub of Supabase's `auth` schema, and — for the
+grants specifically — deliberately *without* assuming any default table
+privileges, so the migration's own explicit `GRANT`s are what's actually
+under test) and verified: family data isolation on reads, direct-ID
+lookups and writes; a composite foreign key that stops a baby from ever
+being attached to the wrong family (caught as a real bug during review);
+`created_by` correctly forced to the real caller and immutable after the
+fact, even when a request tries to spoof or rewrite it; the join/create/
+delete RPCs, wrong-code handling, and rate limiting (including a race-
+condition fix — concurrent guesses are now serialized per requester via an
+advisory lock). See the migration file's comments for what each piece is
+for.
 
 What hasn't been tested, because it requires infrastructure this
 environment doesn't have: an actual Supabase **project** (auth, RLS as
@@ -42,7 +50,35 @@ by default on new projects and the family-code flow depends on it.
 Via the Supabase CLI (`npx supabase login`, `npx supabase link --project-ref
 <ref>`, then `npx supabase db push`), or paste
 `supabase/migrations/0001_init.sql` directly into the SQL Editor in the
-Supabase dashboard and run it once.
+Supabase dashboard and run it once, in full, in one go.
+
+The script isn't written to be safely re-run — if it fails partway through
+(or you accidentally paste it twice), don't just paste it again. Run this
+cleanup first, then paste the full migration again from the top:
+
+```sql
+drop table if exists health_logs cascade;
+drop table if exists appointments cascade;
+drop table if exists babies cascade;
+drop table if exists code_attempts cascade;
+drop table if exists family_members cascade;
+drop table if exists families cascade;
+drop schema if exists private cascade;
+
+drop function if exists delete_my_family(uuid);
+drop function if exists join_family_by_code(text);
+drop function if exists create_family();
+drop function if exists protect_created_by();
+drop function if exists sync_health_log_numeric();
+drop function if exists set_updated_at();
+```
+
+**Important:** don't add `private` to Supabase's exposed-schemas list
+(Project Settings → API → Exposed schemas). Two internal helper functions
+live there specifically so they're *not* reachable as `/rest/v1/rpc/...`
+endpoints — only the three intentional public RPCs (`create_family`,
+`join_family_by_code`, `delete_my_family`) should be callable from the
+client.
 
 ### 4. Install and run
 
