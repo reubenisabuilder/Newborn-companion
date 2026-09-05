@@ -141,9 +141,9 @@ returns setof uuid
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_catalog, pg_temp
 as $$
-  select family_id from family_members where user_id = auth.uid();
+  select family_id from public.family_members where user_id = (select auth.uid());
 $$;
 comment on function get_my_family_ids is
   'The single seam every family-scoped RLS policy reads through. Upgrading to real accounts later only changes how rows get inserted into family_members — this function and every policy built on it stay exactly as-is.';
@@ -178,26 +178,27 @@ create or replace function create_family()
 returns table(family_id uuid, code text)
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_catalog, pg_temp
 as $$
 declare
+  v_uid uuid := (select auth.uid());
   v_family_id uuid;
   v_code text;
   v_normalized text;
 begin
-  if auth.uid() is null then
+  if v_uid is null then
     raise exception 'Must be signed in';
   end if;
 
-  v_code := generate_family_code();
+  v_code := public.generate_family_code();
   v_normalized := replace(v_code, '-', '');
 
-  insert into families (code_hash, code_last4)
+  insert into public.families (code_hash, code_last4)
     values (crypt(v_normalized, gen_salt('bf', 12)), right(v_normalized, 4))
     returning id into v_family_id;
 
-  insert into family_members (family_id, user_id, auth_method)
-    values (v_family_id, auth.uid(), 'anonymous_code');
+  insert into public.family_members (family_id, user_id, auth_method)
+    values (v_family_id, v_uid, 'anonymous_code');
 
   return query select v_family_id, v_code;
 end;
@@ -212,9 +213,10 @@ create or replace function join_family_by_code(p_code text)
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_catalog, pg_temp
 as $$
 declare
+  v_uid uuid := (select auth.uid());
   v_requester text;
   v_recent_failures int;
   v_normalized text;
@@ -222,16 +224,16 @@ declare
   v_match_family_id uuid;
   rec record;
 begin
-  if auth.uid() is null then
+  if v_uid is null then
     raise exception 'Must be signed in';
   end if;
 
   -- Prefer the caller's IP so minting a fresh anonymous user can't reset
-  -- the rate limit; fall back to auth.uid() if headers aren't available
+  -- the rate limit; fall back to their user id if headers aren't available
   -- (e.g. local psql testing outside PostgREST).
   v_requester := coalesce(
     (current_setting('request.headers', true)::json ->> 'x-forwarded-for'),
-    auth.uid()::text
+    v_uid::text
   );
 
   -- IMPORTANT: this function must return NULL rather than RAISE on an
@@ -244,19 +246,19 @@ begin
   -- both a wrong code and a rate-limit trip either way.
 
   select count(*) into v_recent_failures
-    from code_attempts
+    from public.code_attempts
     where requester_key = v_requester
       and attempted_at > now() - interval '15 minutes';
 
   if v_recent_failures >= 10 then
-    insert into code_attempts (requester_key, family_id) values (v_requester, null);
+    insert into public.code_attempts (requester_key, family_id) values (v_requester, null);
     return null;
   end if;
 
   v_normalized := upper(regexp_replace(p_code, '[^A-Za-z0-9]', '', 'g'));
   v_last4 := right(v_normalized, 4);
 
-  for rec in select id, code_hash from families where code_last4 = v_last4 loop
+  for rec in select id, code_hash from public.families where code_last4 = v_last4 loop
     if crypt(v_normalized, rec.code_hash) = rec.code_hash then
       v_match_family_id := rec.id;
       exit;
@@ -265,15 +267,15 @@ begin
 
   -- Logged whether or not it matched, so repeated guesses against a
   -- specific family are visible even if requester_key rotates.
-  insert into code_attempts (requester_key, family_id)
+  insert into public.code_attempts (requester_key, family_id)
     values (v_requester, v_match_family_id);
 
   if v_match_family_id is null then
     return null;
   end if;
 
-  insert into family_members (family_id, user_id, auth_method)
-    values (v_match_family_id, auth.uid(), 'anonymous_code')
+  insert into public.family_members (family_id, user_id, auth_method)
+    values (v_match_family_id, v_uid, 'anonymous_code')
     on conflict (family_id, user_id) do nothing;
 
   return v_match_family_id;
@@ -295,17 +297,17 @@ create or replace function delete_my_family(p_family_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_catalog, pg_temp
 as $$
 begin
   if not exists (
-    select 1 from family_members
-    where family_id = p_family_id and user_id = auth.uid()
+    select 1 from public.family_members
+    where family_id = p_family_id and user_id = (select auth.uid())
   ) then
     raise exception 'Not a member of this family';
   end if;
 
-  delete from families where id = p_family_id;
+  delete from public.families where id = p_family_id;
 end;
 $$;
 
