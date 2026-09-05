@@ -425,7 +425,7 @@ function renderDashboard(){
       </div>
       <div class="stat-tile" onclick="NC.goTab('health')">
         <div class="label">Last weight</div>
-        ${lastWeight ? `<div class="value">${lastWeight.value} ${lastWeight.unit}</div><div class="sub">${fmtShort(lastWeight.date)}</div>` : `<div class="value">—</div><div class="sub">Log a weigh-in</div>`}
+        ${lastWeight ? `<div class="value">${escapeHtml(lastWeight.value)} ${escapeHtml(lastWeight.unit||'')}</div><div class="sub">${fmtShort(lastWeight.date)}</div>` : `<div class="value">—</div><div class="sub">Log a weigh-in</div>`}
       </div>
     </div>
     <div class="card" style="margin-top:14px;">
@@ -462,12 +462,12 @@ function buildActivityFeed(limit){
   const items = [];
   state.appointments.forEach(a=>items.push({
     id:a.id, date:a.date, icon:'📅', bg:'var(--c-appt-bg)',
-    title:a.title || a.type, sub:a.notes ? a.notes : `${a.type} appointment`,
+    title:escapeHtml(a.title || a.type), sub:a.notes ? a.notes : `${a.type} appointment`,
     onClick:`NC.editAppointment('${a.id}')`,
   }));
   state.healthLogs.forEach(h=>items.push({
     id:h.id, date:h.date, icon:'📈', bg:'var(--c-health-bg)',
-    title:`${h.type[0].toUpperCase()+h.type.slice(1)}: ${h.value}${h.unit?' '+h.unit:''}`, sub:h.notes||'',
+    title:`${h.type[0].toUpperCase()+h.type.slice(1)}: ${escapeHtml(h.value)}${h.unit?' '+escapeHtml(h.unit):''}`, sub:h.notes||'',
     onClick:`NC.editHealth('${h.id}')`,
   }));
   items.sort((a,b)=> b.date===a.date ? (a.id<b.id?1:-1) : b.date.localeCompare(a.date));
@@ -483,7 +483,7 @@ function renderAppointments(){
   const past = sorted.filter(a=>a.date<todayStr()).reverse();
   function item(a){
     return `<div class="list-item">
-      <div class="row"><strong>${a.title || a.type}</strong><span class="chip type-${a.type.replace(/\s/g,'-')}">${a.type}</span></div>
+      <div class="row"><strong>${escapeHtml(a.title || a.type)}</strong><span class="chip type-${a.type.replace(/\s/g,'-')}">${a.type}</span></div>
       <div class="small muted">${fmtDate(a.date)}${a.time? ' · '+a.time:''}</div>
       ${a.notes ? `<div class="small" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(a.notes)}</div>` : ''}
       <div class="actions-row">
@@ -538,6 +538,7 @@ NC.saveAppointment = function(id){
   save(); NC.closeModal(); renderAppointments(); renderDashboard();
 };
 NC.deleteAppointment = function(id){
+  if(!confirm('Delete this appointment? This can\'t be undone.')) return;
   state.appointments = state.appointments.filter(x=>x.id!==id);
   save(); NC.closeModal(); renderAppointments(); renderDashboard();
 };
@@ -577,6 +578,7 @@ function buildChart(entries, metric){
   let refWeight = null, band = null;
   if(metric==='weight' && state.baby && state.baby.birthWeight){
     refWeight = parseFloat(state.baby.birthWeight);
+    if(state.baby.weightUnit === 'lb') refWeight *= 0.45359237;
   }
   let allVals = vals.slice();
   if(refWeight!=null) allVals.push(refWeight);
@@ -636,7 +638,7 @@ function buildChart(entries, metric){
     const lastI = entries.length-1;
     const lx = xOf(dates[lastI]), ly = yOf(vals[lastI]);
     const labelY = ly<padT+16 ? ly+16 : ly-10;
-    svg += `<text x="${lx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="11" font-weight="800" fill="var(--ink)" text-anchor="${lx>W-70?'end':'middle'}">${entries[lastI].value}${metric==='weight'?'':''}</text>`;
+    svg += `<text x="${lx.toFixed(1)}" y="${labelY.toFixed(1)}" font-size="11" font-weight="800" fill="var(--ink)" text-anchor="${lx>W-70?'end':'middle'}">${escapeHtml(String(entries[lastI].value))}${metric==='weight'?'':''}</text>`;
     // x labels first/last
     svg += `<text x="${padL}" y="${H-8}" font-size="9" fill="var(--muted)" text-anchor="start">${fmtShort(entries[0].date)}</text>`;
     if(entries.length>1){
@@ -662,7 +664,7 @@ function renderHealth(){
     chartBlock = `
       <div class="row" style="align-items:flex-start; margin-bottom:8px;">
         <div>
-          <div style="font-size:1.5rem; font-weight:800;">${last.value}<span class="small muted" style="font-weight:700;"> ${last.unit||metric.unit}</span></div>
+          <div style="font-size:1.5rem; font-weight:800;">${escapeHtml(last.value)}<span class="small muted" style="font-weight:700;"> ${escapeHtml(last.unit||metric.unit)}</span></div>
           ${prev && metric.key==='weight' ? `<div class="small muted">${(parseFloat(last.value)-parseFloat(prev.value)>=0?'+':'')}${(parseFloat(last.value)-parseFloat(prev.value)).toFixed(2)} kg since ${fmtShort(prev.date)}</div>` : `<div class="small muted">${fmtDate(last.date)}</div>`}
         </div>
       </div>
@@ -683,7 +685,7 @@ function renderHealth(){
       <h2>${metric.label} log</h2>
       ${entries.length? [...entries].reverse().map(h=>`
         <div class="list-item">
-          <div class="row"><strong>${h.value} ${h.unit||''}</strong><span class="small muted">${fmtDate(h.date)}</span></div>
+          <div class="row"><strong>${escapeHtml(h.value)} ${escapeHtml(h.unit||'')}</strong><span class="small muted">${fmtDate(h.date)}</span></div>
           ${h.notes? `<div class="small" style="margin-top:4px;">${escapeHtml(h.notes)}</div>`:''}
           <div class="actions-row">
             <button class="ghost" onclick="NC.editHealth('${h.id}')">Edit</button>
@@ -700,7 +702,7 @@ function renderHealth(){
       const idx = parseInt(p.dataset.idx,10);
       const e = entries[idx];
       const r = document.getElementById('chartReadout');
-      if(r) r.innerHTML = `<span class="d">${fmtDate(e.date)}:</span> ${e.value} ${e.unit||metric.unit}`;
+      if(r) r.innerHTML = `<span class="d">${fmtDate(e.date)}:</span> ${escapeHtml(e.value)} ${escapeHtml(e.unit||metric.unit)}`;
     });
   });
 }
@@ -715,8 +717,8 @@ NC.editHealth = function(id, presetType){
       ${[['weight','Weight'],['jaundice','Jaundice level (bilirubin)'],['temperature','Temperature'],['other','Other']].map(([v,l])=>`<option value="${v}" ${h.type===v?'selected':''}>${l}</option>`).join('')}
     </select>
     <div class="grid2">
-      <div><label for="h_value">Value</label><input id="h_value" value="${h.value}" inputmode="decimal"></div>
-      <div><label for="h_unit">Unit</label><input id="h_unit" value="${h.unit||''}" placeholder="kg, µmol/L, °C..."></div>
+      <div><label for="h_value">Value</label><input id="h_value" value="${escapeAttr(h.value)}" inputmode="decimal"></div>
+      <div><label for="h_unit">Unit</label><input id="h_unit" value="${escapeAttr(h.unit||'')}" placeholder="kg, µmol/L, °C..."></div>
     </div>
     <label for="h_date">Date</label><input type="date" id="h_date" value="${h.date}">
     <label for="h_notes">Notes</label><textarea id="h_notes" placeholder="Context, who measured it, anything said about it...">${h.notes?escapeHtml(h.notes):''}</textarea>
@@ -742,6 +744,7 @@ NC.saveHealth = function(id){
   save(); NC.closeModal(); renderHealth(); renderDashboard();
 };
 NC.deleteHealth = function(id){
+  if(!confirm('Delete this entry? This can\'t be undone.')) return;
   state.healthLogs = state.healthLogs.filter(x=>x.id!==id);
   save(); NC.closeModal(); renderHealth(); renderDashboard();
 };
