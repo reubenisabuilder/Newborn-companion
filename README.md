@@ -103,7 +103,7 @@ Working and in daily use, but deliberately minimal. Known limitations:
 - **No cloud backup** — manual JSON export is the only safety net
 - Content covers weeks 1–12 only
 
-The planned next step is a hosted version (Next.js + Supabase) with real password-protected accounts, cloud backup, and up to two linked parents sharing one baby's records.
+The hosted version is now underway in [`web/`](web/) — Next.js + Supabase, family-code sharing (parents, grandparents, anyone with the code, not capped at two), multiple babies per family, and the same feature set as this file. See [`web/README.md`](web/README.md) for setup and current status. This file stays as the local-only, no-account version.
 
 ## Contributing
 

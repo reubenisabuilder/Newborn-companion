@@ -1,0 +1,351 @@
+-- Newborn Companion — Phase A schema
+--
+-- Access model: family-code auth-lite via Supabase anonymous auth.
+-- Every family-scoped table is gated by get_my_family_ids(), which reads
+-- membership from family_members. That's the ONLY seam that changes when
+-- this later upgrades to real accounts (email/password or magic link) —
+-- these tables and policies do not change shape.
+--
+-- Uniform access: every family_members row has equal rights (no role
+-- tiers) — same model as Huckleberry. Anyone holding the family code has
+-- full read/write access to everything in that family.
+
+create extension if not exists pgcrypto;
+
+-- ---------------------------------------------------------------------
+-- Tables
+-- ---------------------------------------------------------------------
+
+create table families (
+  id uuid primary key default gen_random_uuid(),
+  code_hash text not null,
+  code_last4 text not null,
+  created_at timestamptz not null default now()
+);
+comment on table families is
+  'No direct SELECT/INSERT for anon/authenticated. All access via the create_family/join_family_by_code RPCs (SECURITY DEFINER).';
+
+create table family_members (
+  family_id uuid not null references families(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  auth_method text not null default 'anonymous_code',
+  joined_at timestamptz not null default now(),
+  primary key (family_id, user_id)
+);
+comment on column family_members.auth_method is
+  'Bookkeeping for a future real-accounts migration: distinguishes legacy anonymous-code members from members who joined via real login. Not used by any RLS policy today.';
+
+-- Rate limiting for join_family_by_code. requester_key is the caller's IP
+-- when available (so minting a fresh anonymous user can''t reset the
+-- limit), falling back to auth.uid() otherwise.
+create table code_attempts (
+  id bigint generated always as identity primary key,
+  requester_key text not null,
+  family_id uuid references families(id) on delete set null,
+  attempted_at timestamptz not null default now()
+);
+create index code_attempts_requester_idx on code_attempts (requester_key, attempted_at);
+
+create table babies (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references families(id) on delete cascade,
+  name text not null default '',
+  dob date,
+  birth_weight numeric,
+  weight_unit text not null default 'kg' check (weight_unit in ('kg', 'lb')),
+  gestation_weeks numeric,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index babies_family_idx on babies (family_id);
+comment on column babies.birth_weight is
+  'Stored in whatever unit weight_unit says. Consumers (e.g. the weight chart''s reference line) MUST convert to kg when weight_unit = ''lb'' before comparing against health_logs values — see the lb-to-kg fix carried over from the original index.html.';
+
+create table appointments (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references families(id) on delete cascade,
+  baby_id uuid not null references babies(id) on delete cascade,
+  type text not null default 'Other',
+  date date not null,
+  time time,
+  title text not null default '',
+  notes text not null default '',
+  created_by uuid references auth.users(id) default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index appointments_family_baby_date_idx on appointments (family_id, baby_id, date);
+
+create table health_logs (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references families(id) on delete cascade,
+  baby_id uuid not null references babies(id) on delete cascade,
+  type text not null check (type in ('weight', 'jaundice', 'temperature', 'other')),
+  value text not null,
+  value_numeric numeric,
+  unit text not null default '',
+  date date not null,
+  notes text not null default '',
+  created_by uuid references auth.users(id) default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index health_logs_family_baby_date_idx on health_logs (family_id, baby_id, date);
+comment on column health_logs.value_numeric is
+  'Numeric mirror of value, kept in sync by sync_health_log_numeric(). Null when value doesn''t parse as a number. Exists so charts/insight queries can filter/sort numerically without casting text at query time.';
+
+-- ---------------------------------------------------------------------
+-- Triggers: updated_at bookkeeping + value_numeric sync
+-- ---------------------------------------------------------------------
+
+create or replace function set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger babies_set_updated_at before update on babies
+  for each row execute function set_updated_at();
+create trigger appointments_set_updated_at before update on appointments
+  for each row execute function set_updated_at();
+create trigger health_logs_set_updated_at before update on health_logs
+  for each row execute function set_updated_at();
+
+create or replace function sync_health_log_numeric()
+returns trigger
+language plpgsql
+as $$
+begin
+  begin
+    new.value_numeric := new.value::numeric;
+  exception when others then
+    new.value_numeric := null;
+  end;
+  return new;
+end;
+$$;
+
+create trigger health_logs_sync_numeric before insert or update on health_logs
+  for each row execute function sync_health_log_numeric();
+
+-- ---------------------------------------------------------------------
+-- The auth-lite -> real-accounts seam
+-- ---------------------------------------------------------------------
+
+create or replace function get_my_family_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select family_id from family_members where user_id = auth.uid();
+$$;
+comment on function get_my_family_ids is
+  'The single seam every family-scoped RLS policy reads through. Upgrading to real accounts later only changes how rows get inserted into family_members — this function and every policy built on it stay exactly as-is.';
+
+revoke execute on function get_my_family_ids() from public;
+grant execute on function get_my_family_ids() to authenticated;
+
+-- Generates a high-entropy, human-typeable code (grouped 5-5-5-5, ~100
+-- bits of entropy from 20 random bytes) — never a memorable phrase.
+-- Excludes visually ambiguous characters (0/O, 1/I, L).
+create or replace function generate_family_code()
+returns text
+language plpgsql
+as $$
+declare
+  alphabet text := '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+  raw bytea := gen_random_bytes(20);
+  code text := '';
+  i int;
+begin
+  for i in 0..19 loop
+    code := code || substr(alphabet, (get_byte(raw, i) % length(alphabet)) + 1, 1);
+  end loop;
+  return substr(code, 1, 5) || '-' || substr(code, 6, 5) || '-' ||
+         substr(code, 11, 5) || '-' || substr(code, 16, 5);
+end;
+$$;
+
+revoke execute on function generate_family_code() from public;
+
+create or replace function create_family()
+returns table(family_id uuid, code text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_family_id uuid;
+  v_code text;
+  v_normalized text;
+begin
+  if auth.uid() is null then
+    raise exception 'Must be signed in';
+  end if;
+
+  v_code := generate_family_code();
+  v_normalized := replace(v_code, '-', '');
+
+  insert into families (code_hash, code_last4)
+    values (crypt(v_normalized, gen_salt('bf', 12)), right(v_normalized, 4))
+    returning id into v_family_id;
+
+  insert into family_members (family_id, user_id, auth_method)
+    values (v_family_id, auth.uid(), 'anonymous_code');
+
+  return query select v_family_id, v_code;
+end;
+$$;
+comment on function create_family is
+  'Creates a family + membership for the caller and returns the plaintext code EXACTLY ONCE. Only code_hash is ever stored — the UI must force a "copy/save this" step since it cannot be shown again.';
+
+revoke execute on function create_family() from public;
+grant execute on function create_family() to authenticated;
+
+create or replace function join_family_by_code(p_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_requester text;
+  v_recent_failures int;
+  v_normalized text;
+  v_last4 text;
+  v_match_family_id uuid;
+  rec record;
+begin
+  if auth.uid() is null then
+    raise exception 'Must be signed in';
+  end if;
+
+  -- Prefer the caller's IP so minting a fresh anonymous user can't reset
+  -- the rate limit; fall back to auth.uid() if headers aren't available
+  -- (e.g. local psql testing outside PostgREST).
+  v_requester := coalesce(
+    (current_setting('request.headers', true)::json ->> 'x-forwarded-for'),
+    auth.uid()::text
+  );
+
+  -- IMPORTANT: this function must return NULL rather than RAISE on an
+  -- expected failure (bad code, rate limited). PostgREST runs each RPC
+  -- call in its own transaction and rolls back everything the function
+  -- did if it raises — including the code_attempts row meant to record
+  -- the failed attempt, which would silently defeat the rate limiter.
+  -- Returning NULL commits normally, so the attempt is actually recorded.
+  -- The caller shows the same generic "code not recognised" message for
+  -- both a wrong code and a rate-limit trip either way.
+
+  select count(*) into v_recent_failures
+    from code_attempts
+    where requester_key = v_requester
+      and attempted_at > now() - interval '15 minutes';
+
+  if v_recent_failures >= 10 then
+    insert into code_attempts (requester_key, family_id) values (v_requester, null);
+    return null;
+  end if;
+
+  v_normalized := upper(regexp_replace(p_code, '[^A-Za-z0-9]', '', 'g'));
+  v_last4 := right(v_normalized, 4);
+
+  for rec in select id, code_hash from families where code_last4 = v_last4 loop
+    if crypt(v_normalized, rec.code_hash) = rec.code_hash then
+      v_match_family_id := rec.id;
+      exit;
+    end if;
+  end loop;
+
+  -- Logged whether or not it matched, so repeated guesses against a
+  -- specific family are visible even if requester_key rotates.
+  insert into code_attempts (requester_key, family_id)
+    values (v_requester, v_match_family_id);
+
+  if v_match_family_id is null then
+    return null;
+  end if;
+
+  insert into family_members (family_id, user_id, auth_method)
+    values (v_match_family_id, auth.uid(), 'anonymous_code')
+    on conflict (family_id, user_id) do nothing;
+
+  return v_match_family_id;
+end;
+$$;
+comment on function join_family_by_code is
+  'Returns NULL (not an error) for both a wrong code and a rate-limit trip, so the caller shows one generic message and failed attempts can''t be used to enumerate whether a family exists. Only raises for a genuine error (not signed in).';
+
+revoke execute on function join_family_by_code(text) from public;
+grant execute on function join_family_by_code(text) to authenticated;
+
+-- Erasing a family deletes it for EVERY linked member (parents, grandparents,
+-- anyone holding the code) — cascades to babies/appointments/health_logs.
+-- Membership check happens here since regular members have no direct DELETE
+-- grant on `families` at all. The UI must use a stronger confirmation than a
+-- single confirm() dialog before calling this, since it now affects more
+-- than one device.
+create or replace function delete_my_family(p_family_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from family_members
+    where family_id = p_family_id and user_id = auth.uid()
+  ) then
+    raise exception 'Not a member of this family';
+  end if;
+
+  delete from families where id = p_family_id;
+end;
+$$;
+
+revoke execute on function delete_my_family(uuid) from public;
+grant execute on function delete_my_family(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Row Level Security
+-- ---------------------------------------------------------------------
+
+alter table families enable row level security;
+alter table family_members enable row level security;
+alter table code_attempts enable row level security;
+alter table babies enable row level security;
+alter table appointments enable row level security;
+alter table health_logs enable row level security;
+
+-- families & code_attempts: intentionally NO policies for anon/authenticated.
+-- RLS is enabled with zero permissive policies, which denies all direct
+-- access; the only path in is through the SECURITY DEFINER RPCs above,
+-- which bypass RLS as their own privilege.
+
+create policy "members can see their family memberships" on family_members
+  for select
+  using (family_id in (select get_my_family_ids()));
+
+-- Uniform full access for every family-scoped table: any member of the
+-- family can read/write/delete anything belonging to that family. No role
+-- tiers by design.
+create policy "family members full access" on babies
+  for all
+  using (family_id in (select get_my_family_ids()))
+  with check (family_id in (select get_my_family_ids()));
+
+create policy "family members full access" on appointments
+  for all
+  using (family_id in (select get_my_family_ids()))
+  with check (family_id in (select get_my_family_ids()));
+
+create policy "family members full access" on health_logs
+  for all
+  using (family_id in (select get_my_family_ids()))
+  with check (family_id in (select get_my_family_ids()));
