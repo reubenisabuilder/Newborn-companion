@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireFamilyContext } from "@/lib/family/session";
-import { LegacyExportSchema, normalizeLegacyBaby } from "@/lib/family/legacy-import";
+import { LegacyExportSchema, normalizeLegacyBaby, splitLegacyHealthLogs } from "@/lib/family/legacy-import";
 
 export interface CreateFamilyState {
   code?: string;
@@ -117,16 +117,31 @@ export async function importLegacyBackupAction(
     );
   }
 
-  if (parsed.healthLogs.length > 0) {
+  const { metrics, notes } = splitLegacyHealthLogs(parsed.healthLogs);
+
+  if (metrics.length > 0) {
     await supabase.from("health_logs").insert(
-      parsed.healthLogs.map((h) => ({
+      metrics.map((m) => ({
         family_id: familyId,
         baby_id: baby.id,
-        type: h.type,
-        value: String(h.value),
-        unit: h.unit,
-        date: h.date,
-        notes: h.notes,
+        type: m.type,
+        value: m.value,
+        unit: m.unit,
+        date: m.date,
+        notes: m.notes,
+      }))
+    );
+  }
+
+  if (notes.length > 0) {
+    await supabase.from("appointments").insert(
+      notes.map((n) => ({
+        family_id: familyId,
+        baby_id: baby.id,
+        type: "Note",
+        date: n.date,
+        title: n.title,
+        notes: n.notes,
       }))
     );
   }

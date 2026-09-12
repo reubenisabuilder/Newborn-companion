@@ -86,6 +86,7 @@ label{font-size:0.78rem; color:var(--muted); font-weight:700; display:block; mar
 .chip.type-Hospital{background:var(--c-cry-bg); color:var(--c-cry-fg);}
 .chip.type-GP{background:var(--c-support-bg); color:var(--c-support-fg);}
 .chip.type-Other{background:var(--accent-soft); color:var(--ink);}
+.chip.type-Note{background:var(--c-guide-bg); color:var(--c-guide-fg);}
 
 nav.tabs{
   position:fixed; bottom:0; left:0; right:0; background:var(--card);

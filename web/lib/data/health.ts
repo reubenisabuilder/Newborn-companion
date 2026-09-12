@@ -12,11 +12,15 @@ export interface HealthLog {
   notes: string;
 }
 
+// Only things a parent can genuinely measure at home and watch trend over
+// time. A clinical-only reading like jaundice (bilirubin) isn't something
+// anyone logs from a home device — it's a finding from a visit, which
+// belongs as a Note on that appointment instead, not a metric here.
 export const HEALTH_METRICS: { key: HealthLogType; label: string; unit: string }[] = [
   { key: "weight", label: "Weight", unit: "kg" },
-  { key: "jaundice", label: "Jaundice", unit: "µmol/L" },
   { key: "temperature", label: "Temperature", unit: "°C" },
-  { key: "other", label: "Other", unit: "" },
+  { key: "height", label: "Length", unit: "cm" },
+  { key: "head_circumference", label: "Head circumference", unit: "cm" },
 ];
 
 export async function listHealthLogs(

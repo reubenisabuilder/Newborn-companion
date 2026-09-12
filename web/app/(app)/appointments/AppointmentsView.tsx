@@ -8,7 +8,7 @@ import {
   deleteAppointmentAction,
   type AppointmentFormState,
 } from "@/lib/appointments/actions";
-import { APPOINTMENT_TYPES, type Appointment } from "@/lib/data/appointments";
+import { APPOINTMENT_TYPES, isStandaloneNote, type Appointment } from "@/lib/data/appointments";
 
 function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
@@ -116,6 +116,8 @@ function AppointmentForm({
     saveAppointmentAction,
     {}
   );
+  const [type, setType] = useState(appointment?.type ?? "Midwife");
+  const isNote = isStandaloneNote(type);
   const wasPending = useRef(false);
 
   useEffect(() => {
@@ -126,13 +128,13 @@ function AppointmentForm({
   return (
     <form action={formAction}>
       <input type="hidden" name="id" value={appointment?.id ?? ""} />
-      <div className="modal-icon" style={{ background: "var(--c-appt-bg)" }}>
-        📅
+      <div className="modal-icon" style={{ background: isNote ? "var(--c-guide-bg)" : "var(--c-appt-bg)" }}>
+        {isNote ? "📝" : "📅"}
       </div>
-      <h2>{appointment ? "Edit" : "Add"} appointment</h2>
+      <h2>{appointment ? "Edit" : "Add"} {isNote ? "note" : "appointment"}</h2>
 
       <label htmlFor="a_type">Type</label>
-      <select id="a_type" name="type" defaultValue={appointment?.type ?? "Midwife"}>
+      <select id="a_type" name="type" value={type} onChange={(e) => setType(e.target.value)}>
         {APPOINTMENT_TYPES.map((t) => (
           <option key={t} value={t}>
             {t}
@@ -140,25 +142,41 @@ function AppointmentForm({
         ))}
       </select>
 
-      <div className="grid2">
-        <div>
+      {isNote ? (
+        <>
           <label htmlFor="a_date">Date</label>
           <input type="date" id="a_date" name="date" defaultValue={appointment?.date ?? todayStr()} required />
+        </>
+      ) : (
+        <div className="grid2">
+          <div>
+            <label htmlFor="a_date">Date</label>
+            <input type="date" id="a_date" name="date" defaultValue={appointment?.date ?? todayStr()} required />
+          </div>
+          <div>
+            <label htmlFor="a_time">Time (optional)</label>
+            <input type="time" id="a_time" name="time" defaultValue={appointment?.time ?? ""} />
+          </div>
         </div>
-        <div>
-          <label htmlFor="a_time">Time (optional)</label>
-          <input type="time" id="a_time" name="time" defaultValue={appointment?.time ?? ""} />
-        </div>
-      </div>
+      )}
 
-      <label htmlFor="a_title">Title (optional)</label>
-      <input id="a_title" name="title" placeholder="e.g. Day 5 weight check" defaultValue={appointment?.title ?? ""} />
+      <label htmlFor="a_title">{isNote ? "What's this about?" : "Title (optional)"}</label>
+      <input
+        id="a_title"
+        name="title"
+        placeholder={isNote ? "e.g. Left hip, Feet, Feeding" : "e.g. Day 5 weight check"}
+        defaultValue={appointment?.title ?? ""}
+      />
 
-      <label htmlFor="a_notes">What was said / notes</label>
+      <label htmlFor="a_notes">{isNote ? "What did you notice?" : "What was said / notes"}</label>
       <textarea
         id="a_notes"
         name="notes"
-        placeholder="Key points from the appointment, any advice given, follow-ups..."
+        placeholder={
+          isNote
+            ? "What you noticed, so you can bring it up next time or remember what happened..."
+            : "Key points from the appointment, any advice given, follow-ups..."
+        }
         defaultValue={appointment?.notes ?? ""}
       />
 

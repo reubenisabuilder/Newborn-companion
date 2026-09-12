@@ -11,7 +11,7 @@ export function SettingsView({ familyId, baby }: { familyId: string; baby: Baby 
       <BabyDetailsCard baby={baby} />
       <AddBabyCard />
       <DataCard />
-      {baby && <EraseFamilyCard familyId={familyId} babyName={baby.name} />}
+      <EraseFamilyCard familyId={familyId} babyName={baby?.name ?? ""} />
       <div className="card small muted">
         Newborn Companion — shared with anyone holding your family code. Not
         affiliated with the NHS. Information sourced from general NHS,

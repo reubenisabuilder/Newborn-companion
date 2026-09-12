@@ -26,11 +26,11 @@ export async function getBaby(
 export async function createBaby(
   supabase: SupabaseClient<Database>,
   familyId: string,
-  name: string
+  fields: { name: string; dob?: string | null }
 ) {
   return supabase
     .from("babies")
-    .insert({ family_id: familyId, name })
+    .insert({ family_id: familyId, name: fields.name, dob: fields.dob || null })
     .select("id")
     .single();
 }

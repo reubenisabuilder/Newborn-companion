@@ -11,7 +11,7 @@
 // the whole client's generics silently collapse to `never`.
 
 export type WeightUnit = "kg" | "lb";
-export type HealthLogType = "weight" | "jaundice" | "temperature" | "other";
+export type HealthLogType = "weight" | "temperature" | "height" | "head_circumference";
 
 export interface Database {
   public: {

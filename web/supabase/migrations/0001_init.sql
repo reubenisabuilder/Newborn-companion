@@ -95,7 +95,7 @@ create table health_logs (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null,
   baby_id uuid not null,
-  type text not null check (type in ('weight', 'jaundice', 'temperature', 'other')),
+  type text not null check (type in ('weight', 'temperature', 'height', 'head_circumference')),
   value text not null,
   value_numeric numeric,
   unit text not null default '',

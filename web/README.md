@@ -118,6 +118,40 @@ Vercel is the natural fit for a Next.js app. On the "Import Git Repository"
   Settings → Deployment Protection, if you want this reachable by people
   who don't have a Vercel account.
 
+## Schema updated since you last ran it
+
+If you already ran the migration once: the `health_logs` metric types
+changed (`jaundice`/`other` → `height`/`head_circumference`), and
+`appointments` gained a `Note` type for observations that aren't tied to a
+scheduled visit (both design changes — see below). Re-run the cleanup +
+full migration steps from "Run the migration" above to pick this up — same
+drill as last time, and there's still nothing real to lose while this is
+in testing.
+
+## Design notes from reconsidering the first pass
+
+- **Data tab tracks weight, temperature, length, head circumference —
+  not jaundice.** Jaundice (and anything else that's only ever a clinical
+  reading) isn't something a parent measures at home and watches trend —
+  it's a finding from a visit. That belongs as context to recall, not a
+  metric to chart, which is what the next point is for.
+- **Appointments now has a "Note" type** for exactly that: something
+  noticed between visits (a hip click, something about her feet) with no
+  scheduled appointment attached. Same table, same list, same search as
+  every other appointment — just no time field, and a lighter prompt on
+  the title/notes fields. Deliberately *not* a separate tab or a new
+  "topics" concept — appointment notes were already fully searchable, so
+  the only genuine gap was somewhere to put an observation with nothing
+  scheduled around it. One more dropdown option closes that.
+- **Onboarding is now one step shorter**: after creating a family and
+  saving the code, you're asked for the baby's name and DOB right there
+  (with a "Skip for now" escape hatch) instead of landing on an empty
+  dashboard that points you at Settings. The family code also has a copy
+  button now instead of manual text selection.
+- Importing an old single-file app's backup now converts any legacy
+  `jaundice`/`other` entries into Notes instead of dropping them, since
+  the new schema no longer has anywhere else to put them.
+
 ## Known gaps (by design, for this phase)
 
 - **Guide content** only has full weeks 1–12 plus two representative later

@@ -11,7 +11,17 @@ export interface Appointment {
   notes: string;
 }
 
-export const APPOINTMENT_TYPES = ["Midwife", "Health Visitor", "Hospital", "GP", "Other"] as const;
+export const APPOINTMENT_TYPES = ["Midwife", "Health Visitor", "Hospital", "GP", "Other", "Note"] as const;
+
+/**
+ * "Note" is not a scheduled visit — it's something noticed between
+ * appointments (a hip click, something about her feet) that you want to
+ * find again later. Same table, same search, same list — just no time,
+ * and a lighter prompt on the title/notes fields.
+ */
+export function isStandaloneNote(type: string): boolean {
+  return type === "Note";
+}
 
 export async function listAppointments(
   supabase: SupabaseClient<Database>,

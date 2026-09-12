@@ -150,10 +150,11 @@ function HealthLogForm({
 
       <label htmlFor="h_type">Type</label>
       <select id="h_type" name="type" defaultValue={type}>
-        <option value="weight">Weight</option>
-        <option value="jaundice">Jaundice level (bilirubin)</option>
-        <option value="temperature">Temperature</option>
-        <option value="other">Other</option>
+        {HEALTH_METRICS.map((m) => (
+          <option key={m.key} value={m.key}>
+            {m.label}
+          </option>
+        ))}
       </select>
 
       <div className="grid2">

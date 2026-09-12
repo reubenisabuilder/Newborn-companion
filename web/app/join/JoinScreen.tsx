@@ -10,6 +10,10 @@ import {
   type JoinFamilyState,
   type ImportBackupState,
 } from "@/lib/family/actions";
+import {
+  completeOnboardingBabyAction,
+  type OnboardingBabyState,
+} from "@/lib/babies/actions";
 
 type Mode = "choose" | "create" | "join";
 
@@ -49,6 +53,12 @@ function CreateFamilyCard({ onBack }: { onBack: () => void }) {
     {}
   );
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [babyStep, setBabyStep] = useState(false);
+
+  if (state.code && babyStep) {
+    return <OnboardingBabyForm />;
+  }
 
   if (state.code) {
     return (
@@ -61,6 +71,16 @@ function CreateFamilyCard({ onBack }: { onBack: () => void }) {
           somewhere safe now.
         </p>
         <div className="code-display">{state.code}</div>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => {
+            navigator.clipboard.writeText(state.code!);
+            setCopied(true);
+          }}
+        >
+          {copied ? "Copied ✓" : "Copy code"}
+        </button>
         <label style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row" }}>
           <input
             type="checkbox"
@@ -71,11 +91,9 @@ function CreateFamilyCard({ onBack }: { onBack: () => void }) {
           <span style={{ fontWeight: 600 }}>I&apos;ve saved this code</span>
         </label>
         <ImportBackupPrompt />
-        <form action={confirmFamilyCreatedAction}>
-          <button type="submit" disabled={!saved} style={{ width: "100%" }}>
-            Continue
-          </button>
-        </form>
+        <button type="button" disabled={!saved} onClick={() => setBabyStep(true)}>
+          Continue
+        </button>
       </div>
     );
   }
@@ -95,6 +113,38 @@ function CreateFamilyCard({ onBack }: { onBack: () => void }) {
         Back
       </button>
     </form>
+  );
+}
+
+function OnboardingBabyForm() {
+  const [state, formAction, pending] = useActionState<OnboardingBabyState, FormData>(
+    completeOnboardingBabyAction,
+    {}
+  );
+
+  return (
+    <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h2>Baby&apos;s details</h2>
+      <p className="small muted">
+        Just enough to get started — name and date of birth. Everything else
+        (birth weight, gestation) can wait until Settings.
+      </p>
+      <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <label htmlFor="ob_name">Name</label>
+        <input id="ob_name" name="name" placeholder="Baby's name" required autoFocus />
+        <label htmlFor="ob_dob">Date of birth</label>
+        <input type="date" id="ob_dob" name="dob" />
+        {state.error && <p className="small" style={{ color: "var(--danger)" }}>{state.error}</p>}
+        <button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Continue to dashboard"}
+        </button>
+      </form>
+      <form action={confirmFamilyCreatedAction}>
+        <button type="submit" className="ghost" style={{ width: "100%" }}>
+          Skip for now
+        </button>
+      </form>
+    </div>
   );
 }
 

@@ -7,7 +7,7 @@ import { requireFamilyContext } from "@/lib/family/session";
 
 const HealthLogSchema = z.object({
   id: z.string().uuid().optional(),
-  type: z.enum(["weight", "jaundice", "temperature", "other"]),
+  type: z.enum(["weight", "temperature", "height", "head_circumference"]),
   value: z.string().min(1),
   unit: z.string().max(20).optional().default(""),
   date: z.string().min(1),

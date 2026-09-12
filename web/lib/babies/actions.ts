@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createBaby } from "@/lib/data/babies";
 
 const BabyDetailsSchema = z.object({
   id: z.string().uuid(),
@@ -73,11 +74,7 @@ export async function addBabyAction(formData: FormData) {
   const familyId = memberships?.[0]?.family_id;
   if (!familyId) redirect("/join");
 
-  const { data } = await supabase
-    .from("babies")
-    .insert({ family_id: familyId, name })
-    .select("id")
-    .single();
+  const { data } = await createBaby(supabase, familyId, { name });
 
   if (data) {
     const cookieStore = await cookies();
@@ -88,4 +85,44 @@ export async function addBabyAction(formData: FormData) {
     });
   }
   revalidatePath("/", "layout");
+}
+
+export interface OnboardingBabyState {
+  error?: string;
+}
+
+/**
+ * The last step of creating a family: get the dashboard to show something
+ * meaningful right away instead of an empty state pointing at Settings.
+ * Only name + DOB — enough for the hero age and this-week guidance;
+ * everything else (birth weight, gestation) stays a Settings-only
+ * refinement so this step stays quick.
+ */
+export async function completeOnboardingBabyAction(
+  _prev: OnboardingBabyState,
+  formData: FormData
+): Promise<OnboardingBabyState> {
+  const name = String(formData.get("name") ?? "").trim();
+  const dob = String(formData.get("dob") ?? "").trim();
+  if (!name) return { error: "Enter baby's name." };
+
+  const supabase = await createClient();
+  const { data: memberships } = await supabase
+    .from("family_members")
+    .select("family_id")
+    .limit(1);
+  const familyId = memberships?.[0]?.family_id;
+  if (!familyId) redirect("/join");
+
+  const { data, error } = await createBaby(supabase, familyId, { name, dob });
+  if (error || !data) return { error: "Couldn't save. Please try again." };
+
+  const cookieStore = await cookies();
+  cookieStore.set("nc_baby_id", data.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  redirect("/dashboard");
 }
