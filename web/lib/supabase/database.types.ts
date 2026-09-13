@@ -62,6 +62,7 @@ export interface Database {
           title: string;
           notes: string;
           location: string;
+          tags: string[];
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -76,6 +77,7 @@ export interface Database {
           title?: string;
           notes?: string;
           location?: string;
+          tags?: string[];
         };
         Update: Partial<Database["public"]["Tables"]["appointments"]["Insert"]>;
         Relationships: [];

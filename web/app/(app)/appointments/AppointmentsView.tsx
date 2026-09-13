@@ -30,6 +30,7 @@ export function AppointmentsView({ appointments }: { appointments: Appointment[]
   const past = [...appointments.filter((a) => a.date < today)].reverse();
   const pastTypes = [...new Set(appointments.map((a) => a.type).filter(Boolean))];
   const pastLocations = [...new Set(appointments.map((a) => a.location).filter(Boolean))];
+  const pastTags = [...new Set(appointments.flatMap((a) => a.tags))];
 
   return (
     <div className="card">
@@ -39,9 +40,14 @@ export function AppointmentsView({ appointments }: { appointments: Appointment[]
           + Add
         </button>
       </h2>
-      <Link href="/vaccinations" className="ghost">
-        Vaccination schedule →
-      </Link>
+      <div className="actions-row" style={{ marginBottom: 4 }}>
+        <Link href="/vaccinations" className="ghost">
+          Vaccination schedule →
+        </Link>
+        <Link href="/themes" className="ghost">
+          Themes →
+        </Link>
+      </div>
       <h3 className="muted" style={{ marginTop: 14 }}>
         Upcoming
       </h3>
@@ -70,6 +76,7 @@ export function AppointmentsView({ appointments }: { appointments: Appointment[]
             onDone={() => setEditing(null)}
             pastTypes={pastTypes}
             pastLocations={pastLocations}
+            pastTags={pastTags}
           />
         )}
       </Modal>
@@ -100,6 +107,15 @@ function AppointmentItem({
           {a.notes}
         </div>
       )}
+      {a.tags.length > 0 && (
+        <div className="actions-row" style={{ marginTop: 6, marginBottom: 0 }}>
+          {a.tags.map((t) => (
+            <span key={t} className="chip bucket-other">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="actions-row">
         <button className="ghost" onClick={onEdit}>
           Edit
@@ -124,11 +140,13 @@ function AppointmentForm({
   onDone,
   pastTypes,
   pastLocations,
+  pastTags,
 }: {
   appointment: Appointment | null;
   onDone: () => void;
   pastTypes: string[];
   pastLocations: string[];
+  pastTags: string[];
 }) {
   const [state, formAction, pending] = useActionState<AppointmentFormState, FormData>(
     saveAppointmentAction,
@@ -223,6 +241,24 @@ function AppointmentForm({
         }
         defaultValue={appointment?.notes ?? ""}
       />
+
+      <label htmlFor="a_tags">Tags (optional)</label>
+      <input
+        id="a_tags"
+        name="tags"
+        list="a_tag_suggestions"
+        placeholder="e.g. hip, feeding — comma-separated"
+        defaultValue={appointment?.tags.join(", ") ?? ""}
+      />
+      <datalist id="a_tag_suggestions">
+        {pastTags.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+      <p className="small muted" style={{ marginTop: -8 }}>
+        Tag recurring concerns so you can see how often they've come up — see{" "}
+        <Link href="/themes">Themes</Link>.
+      </p>
 
       {state.error && (
         <p className="small" style={{ color: "var(--danger)" }}>

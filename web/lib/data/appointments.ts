@@ -10,6 +10,38 @@ export interface Appointment {
   title: string;
   notes: string;
   location: string;
+  tags: string[];
+}
+
+// "hip, feeding" -> ["hip", "feeding"] — trimmed, lowercased (so "Hip" and
+// "hip" count as the same theme), deduped, empty segments dropped.
+export function parseTags(input: string): string[] {
+  return [...new Set(input.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))];
+}
+
+export interface ThemeCount {
+  tag: string;
+  count: number;
+  appointments: Appointment[];
+}
+
+// How often has "hip" (or whatever) actually come up — grouped by the
+// explicit tags on each appointment/note, most-mentioned first. Exact by
+// construction (a tag is something you chose to attach, not a guess from
+// scanning free text), same "fetch once, work out client/server-side"
+// approach as search and the activity feed.
+export function themeCounts(appointments: Appointment[]): ThemeCount[] {
+  const byTag = new Map<string, Appointment[]>();
+  for (const a of appointments) {
+    for (const tag of a.tags) {
+      const list = byTag.get(tag) ?? [];
+      list.push(a);
+      byTag.set(tag, list);
+    }
+  }
+  return [...byTag.entries()]
+    .map(([tag, list]) => ({ tag, count: list.length, appointments: list }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
 }
 
 // Starter suggestions offered before a family has typed any of their own —
@@ -48,7 +80,7 @@ export async function listAppointments(
 ): Promise<Appointment[]> {
   const { data } = await supabase
     .from("appointments")
-    .select("id, baby_id, type, date, time, title, notes, location")
+    .select("id, baby_id, type, date, time, title, notes, location, tags")
     .eq("baby_id", babyId)
     .order("date", { ascending: true });
   return data ?? [];

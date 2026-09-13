@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireFamilyContext } from "@/lib/family/session";
+import { parseTags } from "@/lib/data/appointments";
 
 const AppointmentSchema = z.object({
   id: z.string().uuid().optional(),
@@ -13,6 +14,7 @@ const AppointmentSchema = z.object({
   title: z.string().max(200).optional().default(""),
   notes: z.string().max(5000).optional().default(""),
   location: z.string().max(200).optional().default(""),
+  tags: z.string().max(500).optional().default(""),
 });
 
 export interface AppointmentFormState {
@@ -32,6 +34,7 @@ export async function saveAppointmentAction(
     title: formData.get("title") || "",
     notes: formData.get("notes") || "",
     location: formData.get("location") || "",
+    tags: formData.get("tags") || "",
   });
   if (!parsed.success) return { error: "Please check the form and try again." };
 
@@ -50,6 +53,7 @@ export async function saveAppointmentAction(
     title: fields.title,
     notes: fields.notes,
     location: fields.location,
+    tags: parseTags(fields.tags),
   };
 
   const { error } = id
