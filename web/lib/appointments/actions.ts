@@ -4,15 +4,15 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireFamilyContext } from "@/lib/family/session";
-import { APPOINTMENT_TYPES } from "@/lib/data/appointments";
 
 const AppointmentSchema = z.object({
   id: z.string().uuid().optional(),
-  type: z.enum(APPOINTMENT_TYPES),
+  type: z.string().trim().min(1).max(60),
   date: z.string().min(1),
   time: z.string().optional(),
   title: z.string().max(200).optional().default(""),
   notes: z.string().max(5000).optional().default(""),
+  location: z.string().max(200).optional().default(""),
 });
 
 export interface AppointmentFormState {
@@ -31,6 +31,7 @@ export async function saveAppointmentAction(
     time: formData.get("time") || undefined,
     title: formData.get("title") || "",
     notes: formData.get("notes") || "",
+    location: formData.get("location") || "",
   });
   if (!parsed.success) return { error: "Please check the form and try again." };
 
@@ -48,6 +49,7 @@ export async function saveAppointmentAction(
     time: fields.time || null,
     title: fields.title,
     notes: fields.notes,
+    location: fields.location,
   };
 
   const { error } = id

@@ -22,7 +22,7 @@ export async function GET() {
   if (!babyId) return Response.json({ appointments: [], healthLogs: [] });
 
   const [appointments, healthLogs] = await Promise.all([
-    supabase.from("appointments").select("id, type, date, title, notes").eq("baby_id", babyId),
+    supabase.from("appointments").select("id, type, date, title, notes, location").eq("baby_id", babyId),
     supabase.from("health_logs").select("id, type, value, unit, date, notes").eq("baby_id", babyId),
   ]);
 

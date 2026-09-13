@@ -61,6 +61,7 @@ export interface Database {
           time: string | null;
           title: string;
           notes: string;
+          location: string;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -74,8 +75,32 @@ export interface Database {
           time?: string | null;
           title?: string;
           notes?: string;
+          location?: string;
         };
         Update: Partial<Database["public"]["Tables"]["appointments"]["Insert"]>;
+        Relationships: [];
+      };
+      vaccinations: {
+        Row: {
+          id: string;
+          family_id: string;
+          baby_id: string;
+          schedule_key: string;
+          given_date: string | null;
+          notes: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_id: string;
+          baby_id: string;
+          schedule_key: string;
+          given_date?: string | null;
+          notes?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["vaccinations"]["Insert"]>;
         Relationships: [];
       };
       health_logs: {

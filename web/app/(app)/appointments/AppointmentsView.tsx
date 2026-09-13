@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
 import { Modal } from "../Modal";
@@ -8,7 +9,7 @@ import {
   deleteAppointmentAction,
   type AppointmentFormState,
 } from "@/lib/appointments/actions";
-import { APPOINTMENT_TYPES, isStandaloneNote, type Appointment } from "@/lib/data/appointments";
+import { APPOINTMENT_TYPES, appointmentColorBucket, isStandaloneNote, type Appointment } from "@/lib/data/appointments";
 
 function fmtDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
@@ -27,6 +28,8 @@ export function AppointmentsView({ appointments }: { appointments: Appointment[]
   const today = todayStr();
   const upcoming = appointments.filter((a) => a.date >= today);
   const past = [...appointments.filter((a) => a.date < today)].reverse();
+  const pastTypes = [...new Set(appointments.map((a) => a.type).filter(Boolean))];
+  const pastLocations = [...new Set(appointments.map((a) => a.location).filter(Boolean))];
 
   return (
     <div className="card">
@@ -36,6 +39,9 @@ export function AppointmentsView({ appointments }: { appointments: Appointment[]
           + Add
         </button>
       </h2>
+      <Link href="/vaccinations" className="ghost">
+        Vaccination schedule →
+      </Link>
       <h3 className="muted" style={{ marginTop: 14 }}>
         Upcoming
       </h3>
@@ -58,7 +64,14 @@ export function AppointmentsView({ appointments }: { appointments: Appointment[]
       )}
 
       <Modal open={editing !== null} onClose={() => setEditing(null)}>
-        {editing && <AppointmentForm appointment={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
+        {editing && (
+          <AppointmentForm
+            appointment={editing === "new" ? null : editing}
+            onDone={() => setEditing(null)}
+            pastTypes={pastTypes}
+            pastLocations={pastLocations}
+          />
+        )}
       </Modal>
     </div>
   );
@@ -75,11 +88,12 @@ function AppointmentItem({
     <div className="list-item">
       <div className="row">
         <strong>{a.title || a.type}</strong>
-        <span className={`chip type-${a.type.replace(/\s/g, "-")}`}>{a.type}</span>
+        <span className={`chip bucket-${appointmentColorBucket(a.type)}`}>{a.type}</span>
       </div>
       <div className="small muted">
         {fmtDate(a.date)}
         {a.time ? " · " + a.time : ""}
+        {a.location ? " · " + a.location : ""}
       </div>
       {a.notes && (
         <div className="small" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
@@ -108,9 +122,13 @@ function AppointmentItem({
 function AppointmentForm({
   appointment,
   onDone,
+  pastTypes,
+  pastLocations,
 }: {
   appointment: Appointment | null;
   onDone: () => void;
+  pastTypes: string[];
+  pastLocations: string[];
 }) {
   const [state, formAction, pending] = useActionState<AppointmentFormState, FormData>(
     saveAppointmentAction,
@@ -119,6 +137,7 @@ function AppointmentForm({
   const [type, setType] = useState(appointment?.type ?? "Midwife");
   const isNote = isStandaloneNote(type);
   const wasPending = useRef(false);
+  const typeSuggestions = [...new Set([...pastTypes, ...APPOINTMENT_TYPES])];
 
   useEffect(() => {
     if (wasPending.current && !pending && !state.error) onDone();
@@ -134,13 +153,38 @@ function AppointmentForm({
       <h2>{appointment ? "Edit" : "Add"} {isNote ? "note" : "appointment"}</h2>
 
       <label htmlFor="a_type">Type</label>
-      <select id="a_type" name="type" value={type} onChange={(e) => setType(e.target.value)}>
-        {APPOINTMENT_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
+      <input
+        id="a_type"
+        name="type"
+        list="a_type_suggestions"
+        value={type}
+        onChange={(e) => setType(e.target.value)}
+        placeholder="e.g. GP, Paediatrician, Health Visitor"
+        required
+      />
+      <datalist id="a_type_suggestions">
+        {typeSuggestions.map((t) => (
+          <option key={t} value={t} />
         ))}
-      </select>
+      </datalist>
+
+      {!isNote && (
+        <>
+          <label htmlFor="a_location">Location (optional)</label>
+          <input
+            id="a_location"
+            name="location"
+            list="a_location_suggestions"
+            placeholder="e.g. The Avenue Surgery"
+            defaultValue={appointment?.location ?? ""}
+          />
+          <datalist id="a_location_suggestions">
+            {pastLocations.map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+        </>
+      )}
 
       {isNote ? (
         <>

@@ -20,6 +20,7 @@ interface RawAppointment {
   date: string;
   title: string;
   notes: string;
+  location: string;
 }
 interface RawHealthLog {
   id: string;
@@ -57,7 +58,7 @@ export function SearchButton() {
             icon: "📅",
             title: a.title || a.type,
             sub: a.notes || `${a.type} appointment`,
-            text: [a.type, a.title, a.notes, a.date].join(" ").toLowerCase(),
+            text: [a.type, a.title, a.notes, a.location, a.date].join(" ").toLowerCase(),
             href: "/appointments",
           })
         );

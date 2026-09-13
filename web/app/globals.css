@@ -81,12 +81,11 @@ label{font-size:0.78rem; color:var(--muted); font-weight:700; display:block; mar
 .list-item{padding:12px 0; border-bottom:1px solid var(--line);}
 .list-item:last-child{border-bottom:none;}
 .chip{display:inline-block; padding:4px 10px; border-radius:999px; font-size:0.72rem; font-weight:800;}
-.chip.type-Midwife{background:var(--c-health-bg); color:var(--c-health-fg);}
-.chip.type-Health-Visitor{background:var(--c-appt-bg); color:var(--c-appt-fg);}
-.chip.type-Hospital{background:var(--c-cry-bg); color:var(--c-cry-fg);}
-.chip.type-GP{background:var(--c-support-bg); color:var(--c-support-fg);}
-.chip.type-Other{background:var(--accent-soft); color:var(--ink);}
-.chip.type-Note{background:var(--c-guide-bg); color:var(--c-guide-fg);}
+.chip.bucket-gp{background:var(--c-support-bg); color:var(--c-support-fg);}
+.chip.bucket-community{background:var(--c-appt-bg); color:var(--c-appt-fg);}
+.chip.bucket-hospital{background:var(--c-cry-bg); color:var(--c-cry-fg);}
+.chip.bucket-note{background:var(--c-guide-bg); color:var(--c-guide-fg);}
+.chip.bucket-other{background:var(--accent-soft); color:var(--ink);}
 
 nav.tabs{
   position:fixed; bottom:0; left:0; right:0; background:var(--card);
