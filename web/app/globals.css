@@ -80,6 +80,10 @@ label{font-size:0.78rem; color:var(--muted); font-weight:700; display:block; mar
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
 .list-item{padding:12px 0; border-bottom:1px solid var(--line);}
 .list-item:last-child{border-bottom:none;}
+.faq-item{padding:12px 0; border-bottom:1px solid var(--line);}
+.faq-item:last-child{border-bottom:none;}
+.faq-item summary{font-weight:700; cursor:pointer;}
+.faq-item p{margin:8px 0 0; color:var(--muted);}
 .chip{display:inline-block; padding:4px 10px; border-radius:999px; font-size:0.72rem; font-weight:800;}
 .chip.bucket-gp{background:var(--c-support-bg); color:var(--c-support-fg);}
 .chip.bucket-community{background:var(--c-appt-bg); color:var(--c-appt-fg);}

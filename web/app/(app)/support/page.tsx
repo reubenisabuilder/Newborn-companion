@@ -1,5 +1,7 @@
 import { Disclaimer } from "../Disclaimer";
+import { CryingSection } from "./CryingSection";
 import { SUPPORT, type SupportOrg } from "@/lib/content/support";
+import { FAQS } from "@/lib/content/faqs";
 
 function OrgList({ list }: { list: SupportOrg[] }) {
   return (
@@ -36,6 +38,19 @@ export default function SupportPage() {
           go to A&E.
         </p>
       </div>
+
+      <CryingSection />
+
+      <div className="card">
+        <h2>Common questions</h2>
+        {FAQS.map((f) => (
+          <details className="faq-item" key={f.q}>
+            <summary>{f.q}</summary>
+            <p className="small">{f.a}</p>
+          </details>
+        ))}
+      </div>
+
       <div className="card">
         <h2>For Mum</h2>
         <OrgList list={SUPPORT.mum} />

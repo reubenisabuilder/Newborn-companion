@@ -64,7 +64,7 @@ export default async function DashboardPage() {
           <span className="ic">📅</span>
           <span className="t">Add appt</span>
         </Link>
-        <Link href="/guide" className="qa-btn">
+        <Link href="/support" className="qa-btn">
           <span className="ic">😢</span>
           <span className="t">Why crying?</span>
         </Link>
