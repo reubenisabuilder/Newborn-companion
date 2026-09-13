@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Disclaimer } from "../Disclaimer";
 import { requireFamilyContext } from "@/lib/family/session";
 import { listAppointments } from "@/lib/data/appointments";
 import { listHealthLogs } from "@/lib/data/health";
@@ -15,16 +16,19 @@ export default async function DashboardPage() {
 
   if (!activeBaby || !activeBaby.dob) {
     return (
-      <div className="card">
-        <h2>Welcome 👋</h2>
-        <p className="small">
-          Add baby&apos;s name and date of birth to get a running age, this week&apos;s
-          guidance, and to start logging appointments and health checks.
-        </p>
-        <Link href="/settings">
-          <button>Set up baby&apos;s details</button>
-        </Link>
-      </div>
+      <>
+        <Disclaimer />
+        <div className="card">
+          <h2>Welcome 👋</h2>
+          <p className="small">
+            Add baby&apos;s name and date of birth to get a running age, this week&apos;s
+            guidance, and to start logging appointments and health checks.
+          </p>
+          <Link href="/settings">
+            <button>Set up baby&apos;s details</button>
+          </Link>
+        </div>
+      </>
     );
   }
 
@@ -43,6 +47,7 @@ export default async function DashboardPage() {
 
   return (
     <>
+      <Disclaimer />
       <div className="card">
         <div className="hero-age">Day {Math.max(days, 0)}</div>
         <div className="hero-sub">

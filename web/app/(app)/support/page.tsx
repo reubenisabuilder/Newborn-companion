@@ -1,3 +1,4 @@
+import { Disclaimer } from "../Disclaimer";
 import { SUPPORT, type SupportOrg } from "@/lib/content/support";
 
 function OrgList({ list }: { list: SupportOrg[] }) {
@@ -24,6 +25,7 @@ function OrgList({ list }: { list: SupportOrg[] }) {
 export default function SupportPage() {
   return (
     <>
+      <Disclaimer />
       <div className="redflag">
         <h3>If you&apos;re not safe right now</h3>
         <p className="small">
