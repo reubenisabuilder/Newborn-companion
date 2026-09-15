@@ -152,6 +152,14 @@ and there's still nothing real to lose while this is in testing.
 
 ## Design notes from reconsidering the first pass
 
+- **Colour palette is "Lilac"**, landed on after A/B-testing four
+  directions in a live comparison artifact: one hue only (light = lilac,
+  dark = the same hue deepened), so category badges are told apart by
+  their icon rather than five different tint colours, with only true
+  semantic colours (good/warn/danger) staying outside that rule. The
+  header is a bold solid-colour band with a wavy lower edge, so the
+  accent reads as a real shape on the page rather than only tinting
+  small badges. Applied to both this app and the original `index.html`.
 - **Data tab tracks weight, temperature, length, head circumference —
   not jaundice.** Jaundice (and anything else that's only ever a clinical
   reading) isn't something a parent measures at home and watches trend —
