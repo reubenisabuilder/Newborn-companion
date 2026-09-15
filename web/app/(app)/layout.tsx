@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             aria-hidden="true"
             focusable="false"
           >
-            <circle cx="32" cy="32" r="30" fill="var(--accent-soft)" />
+            <circle cx="32" cy="32" r="30" fill="var(--accent-ink)" />
             <path
               d="M40 18a14 14 0 1 0 6 19.8A11 11 0 0 1 40 18Z"
               fill="var(--accent)"
@@ -39,6 +39,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <circle cx="46" cy="46" r="1.8" fill="var(--accent)" />
           </svg>
         </div>
+        <svg className="wave" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,16 C60,32 120,0 200,14 C280,28 340,2 400,18 L400,40 L0,40 Z" />
+        </svg>
       </header>
 
       <main>{children}</main>

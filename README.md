@@ -91,7 +91,7 @@ On a phone, use **Add to Home Screen** for an app-like icon and full-screen laun
 ## Design notes
 
 - **One file, vanilla JS, no framework.** It should still open and work in ten years, which matters more here than developer ergonomics.
-- **Mobile-first, one-handed, 3am.** Warm palette, large touch targets, automatic light/dark.
+- **Mobile-first, one-handed, 3am.** Single-hue lilac palette (calm rather than clinical — icons, not colour, tell sections apart), large touch targets, automatic light/dark.
 - **Charts are hand-rolled SVG.** No charting library for six data points.
 - **Accessibility:** labelled fields, keyboard-dismissable dialogs, 44px touch targets, WCAG AA text contrast. Some decorative pastel badges still fall short of AA and are on the list.
 
