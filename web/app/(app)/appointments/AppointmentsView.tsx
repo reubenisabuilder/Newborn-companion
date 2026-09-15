@@ -1,0 +1,279 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { useActionState } from "react";
+import { Modal } from "../Modal";
+import {
+  saveAppointmentAction,
+  deleteAppointmentAction,
+  type AppointmentFormState,
+} from "@/lib/appointments/actions";
+import { APPOINTMENT_TYPES, appointmentColorBucket, isStandaloneNote, type Appointment } from "@/lib/data/appointments";
+
+function fmtDate(d: string) {
+  return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+export function AppointmentsView({ appointments }: { appointments: Appointment[] }) {
+  const [editing, setEditing] = useState<Appointment | "new" | null>(null);
+  const today = todayStr();
+  const upcoming = appointments.filter((a) => a.date >= today);
+  const past = [...appointments.filter((a) => a.date < today)].reverse();
+  const pastTypes = [...new Set(appointments.map((a) => a.type).filter(Boolean))];
+  const pastLocations = [...new Set(appointments.map((a) => a.location).filter(Boolean))];
+  const pastTags = [...new Set(appointments.flatMap((a) => a.tags))];
+
+  return (
+    <div className="card">
+      <h2>
+        Appointments
+        <button className="btn-add" onClick={() => setEditing("new")}>
+          + Add
+        </button>
+      </h2>
+      <div className="actions-row" style={{ marginBottom: 4 }}>
+        <Link href="/vaccinations" className="ghost">
+          Vaccination schedule →
+        </Link>
+        <Link href="/themes" className="ghost">
+          Themes →
+        </Link>
+      </div>
+      <h3 className="muted" style={{ marginTop: 14 }}>
+        Upcoming
+      </h3>
+      {upcoming.length ? (
+        upcoming.map((a) => (
+          <AppointmentItem key={a.id} appointment={a} onEdit={() => setEditing(a)} />
+        ))
+      ) : (
+        <div className="empty">Nothing upcoming.</div>
+      )}
+      {past.length > 0 && (
+        <>
+          <h3 className="muted" style={{ marginTop: 16 }}>
+            Past
+          </h3>
+          {past.map((a) => (
+            <AppointmentItem key={a.id} appointment={a} onEdit={() => setEditing(a)} />
+          ))}
+        </>
+      )}
+
+      <Modal open={editing !== null} onClose={() => setEditing(null)}>
+        {editing && (
+          <AppointmentForm
+            appointment={editing === "new" ? null : editing}
+            onDone={() => setEditing(null)}
+            pastTypes={pastTypes}
+            pastLocations={pastLocations}
+            pastTags={pastTags}
+          />
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function AppointmentItem({
+  appointment: a,
+  onEdit,
+}: {
+  appointment: Appointment;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="list-item">
+      <div className="row">
+        <strong>{a.title || a.type}</strong>
+        <span className={`chip bucket-${appointmentColorBucket(a.type)}`}>{a.type}</span>
+      </div>
+      <div className="small muted">
+        {fmtDate(a.date)}
+        {a.time ? " · " + a.time : ""}
+        {a.location ? " · " + a.location : ""}
+      </div>
+      {a.notes && (
+        <div className="small" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
+          {a.notes}
+        </div>
+      )}
+      {a.tags.length > 0 && (
+        <div className="actions-row" style={{ marginTop: 6, marginBottom: 0 }}>
+          {a.tags.map((t) => (
+            <span key={t} className="chip bucket-other">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="actions-row">
+        <button className="ghost" onClick={onEdit}>
+          Edit
+        </button>
+        <button
+          className="ghost"
+          onClick={() => {
+            if (confirm("Delete this appointment? This can't be undone.")) {
+              deleteAppointmentAction(a.id);
+            }
+          }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AppointmentForm({
+  appointment,
+  onDone,
+  pastTypes,
+  pastLocations,
+  pastTags,
+}: {
+  appointment: Appointment | null;
+  onDone: () => void;
+  pastTypes: string[];
+  pastLocations: string[];
+  pastTags: string[];
+}) {
+  const [state, formAction, pending] = useActionState<AppointmentFormState, FormData>(
+    saveAppointmentAction,
+    {}
+  );
+  const [type, setType] = useState(appointment?.type ?? "Midwife");
+  const isNote = isStandaloneNote(type);
+  const wasPending = useRef(false);
+  const typeSuggestions = [...new Set([...pastTypes, ...APPOINTMENT_TYPES])];
+
+  useEffect(() => {
+    if (wasPending.current && !pending && !state.error) onDone();
+    wasPending.current = pending;
+  }, [pending, state, onDone]);
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="id" value={appointment?.id ?? ""} />
+      <div className="modal-icon" style={{ background: isNote ? "var(--c-guide-bg)" : "var(--c-appt-bg)" }}>
+        {isNote ? "📝" : "📅"}
+      </div>
+      <h2>{appointment ? "Edit" : "Add"} {isNote ? "note" : "appointment"}</h2>
+
+      <label htmlFor="a_type">Type</label>
+      <input
+        id="a_type"
+        name="type"
+        list="a_type_suggestions"
+        value={type}
+        onChange={(e) => setType(e.target.value)}
+        placeholder="e.g. GP, Paediatrician, Health Visitor"
+        required
+      />
+      <datalist id="a_type_suggestions">
+        {typeSuggestions.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+
+      {!isNote && (
+        <>
+          <label htmlFor="a_location">Location (optional)</label>
+          <input
+            id="a_location"
+            name="location"
+            list="a_location_suggestions"
+            placeholder="e.g. The Avenue Surgery"
+            defaultValue={appointment?.location ?? ""}
+          />
+          <datalist id="a_location_suggestions">
+            {pastLocations.map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+        </>
+      )}
+
+      {isNote ? (
+        <>
+          <label htmlFor="a_date">Date</label>
+          <input type="date" id="a_date" name="date" defaultValue={appointment?.date ?? todayStr()} required />
+        </>
+      ) : (
+        <div className="grid2">
+          <div>
+            <label htmlFor="a_date">Date</label>
+            <input type="date" id="a_date" name="date" defaultValue={appointment?.date ?? todayStr()} required />
+          </div>
+          <div>
+            <label htmlFor="a_time">Time (optional)</label>
+            <input type="time" id="a_time" name="time" defaultValue={appointment?.time ?? ""} />
+          </div>
+        </div>
+      )}
+
+      <label htmlFor="a_title">{isNote ? "What's this about?" : "Title (optional)"}</label>
+      <input
+        id="a_title"
+        name="title"
+        placeholder={isNote ? "e.g. Left hip, Feet, Feeding" : "e.g. Day 5 weight check"}
+        defaultValue={appointment?.title ?? ""}
+      />
+
+      <label htmlFor="a_notes">{isNote ? "What did you notice?" : "What was said / notes"}</label>
+      <textarea
+        id="a_notes"
+        name="notes"
+        placeholder={
+          isNote
+            ? "What you noticed, so you can bring it up next time or remember what happened..."
+            : "Key points from the appointment, any advice given, follow-ups..."
+        }
+        defaultValue={appointment?.notes ?? ""}
+      />
+
+      <label htmlFor="a_tags">Tags (optional)</label>
+      <input
+        id="a_tags"
+        name="tags"
+        list="a_tag_suggestions"
+        placeholder="e.g. hip, feeding — comma-separated"
+        defaultValue={appointment?.tags.join(", ") ?? ""}
+      />
+      <datalist id="a_tag_suggestions">
+        {pastTags.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+      <p className="small muted" style={{ marginTop: -8 }}>
+        Tag recurring concerns so you can see how often they've come up — see{" "}
+        <Link href="/themes">Themes</Link>.
+      </p>
+
+      {state.error && (
+        <p className="small" style={{ color: "var(--danger)" }}>
+          {state.error}
+        </p>
+      )}
+
+      <div className="actions-row">
+        <button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className="secondary" onClick={onDone}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
