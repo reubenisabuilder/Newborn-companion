@@ -2,10 +2,29 @@
 
 The hosted rewrite described in the root repo's plan: Next.js + Supabase,
 family-code sharing (parents, grandparents, anyone with the code — no
-per-person accounts yet), multiple babies per family, appointments, growth
-charts, the week-by-week guide, crying decoder, support directory, and
-global search. The original single-file `index.html` at the repo root is
-unaffected and still works standalone.
+per-person accounts yet), multiple babies per family, appointments,
+vaccination tracking, growth charts, the week-by-week guide, a support tab
+(crying reasons, FAQs, and mental-health resources), theme tracking across
+appointments/notes, and global search. The original single-file
+`index.html` at the repo root is unaffected and still works standalone.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Home](docs/screenshots/dashboard.png) | ![Appointments](docs/screenshots/appointments.png) |
+| Home | Appointments — free-text type/location, tags |
+| ![Vaccinations](docs/screenshots/vaccinations.png) | ![Data](docs/screenshots/health.png) |
+| Vaccinations — NHS schedule checklist | Data — growth chart |
+| ![Guide](docs/screenshots/guide.png) | ![Support](docs/screenshots/support.png) |
+| Guide — week by week | Support — crying reasons, FAQs, resources |
+| ![Themes](docs/screenshots/themes.png) | |
+| Themes — how often something's come up | |
+
+Rendered from the real components with fixture data (see
+`app/zzpreview/` in git history if you want to regenerate these — that
+directory is deleted before every commit, it's a screenshot harness, not
+part of the app).
 
 ## What's built vs. what needs you
 
@@ -45,18 +64,21 @@ Copy `.env.example` to `.env.local` and fill both in.
 **Authentication → Sign In / Providers → Anonymous Sign-Ins** — this is off
 by default on new projects and the family-code flow depends on it.
 
-### 3. Run the migration
+### 3. Run the migrations
 
 Via the Supabase CLI (`npx supabase login`, `npx supabase link --project-ref
-<ref>`, then `npx supabase db push`), or paste
-`supabase/migrations/0001_init.sql` directly into the SQL Editor in the
-Supabase dashboard and run it once, in full, in one go.
+<ref>`, then `npx supabase db push`), or paste each file in
+`supabase/migrations/` into the SQL Editor in the Supabase dashboard and run
+them in order (`0001_init.sql`, then `0002_location_and_vaccinations.sql`,
+then `0003_appointment_tags.sql`) — each one in full, in one go.
 
-The script isn't written to be safely re-run — if it fails partway through
-(or you accidentally paste it twice), don't just paste it again. Run this
-cleanup first, then paste the full migration again from the top:
+None of these scripts are written to be safely re-run — if one fails
+partway through (or you accidentally paste it twice), don't just paste it
+again. Run this cleanup first, then paste all three migrations again from
+the top, in order:
 
 ```sql
+drop table if exists vaccinations cascade;
 drop table if exists health_logs cascade;
 drop table if exists appointments cascade;
 drop table if exists babies cascade;
@@ -120,13 +142,13 @@ Vercel is the natural fit for a Next.js app. On the "Import Git Repository"
 
 ## Schema updated since you last ran it
 
-If you already ran the migration once: the `health_logs` metric types
-changed (`jaundice`/`other` → `height`/`head_circumference`), and
-`appointments` gained a `Note` type for observations that aren't tied to a
-scheduled visit (both design changes — see below). Re-run the cleanup +
-full migration steps from "Run the migration" above to pick this up — same
-drill as last time, and there's still nothing real to lose while this is
-in testing.
+If you already ran `0001_init.sql` before `0002` and `0003` existed: the
+`health_logs` metric types changed (`jaundice`/`other` →
+`height`/`head_circumference`), `appointments` gained a `Note` type, a free
+text `location` column, and a `tags` array column, and a whole new
+`vaccinations` table was added. Re-run the cleanup + all three migrations
+from "Run the migrations" above to pick this up — same drill as last time,
+and there's still nothing real to lose while this is in testing.
 
 ## Design notes from reconsidering the first pass
 
@@ -142,7 +164,32 @@ in testing.
   the title/notes fields. Deliberately *not* a separate tab or a new
   "topics" concept — appointment notes were already fully searchable, so
   the only genuine gap was somewhere to put an observation with nothing
-  scheduled around it. One more dropdown option closes that.
+  scheduled around it.
+- **Appointment `type` and `location` are free text with autocomplete**
+  from your own family's past entries, not a fixed dropdown. Real-world
+  appointment types (GP, health visitor, paediatrician, audiology...) are
+  too open-ended for an enum that would only ever grow; chip colour comes
+  from loose keyword matching into a small set of buckets instead of an
+  exact-string lookup.
+- **Vaccinations get their own checklist** (`/vaccinations`, linked from
+  Appointments) against the NHS routine schedule — 8/12/16 weeks, 1 year,
+  3y4m — rather than being another appointment type. It's sparse by
+  design: a row only exists once something's actually recorded, so
+  "not yet given" needs no seeding.
+- **Theme tracking via tags**: an appointment or note can carry optional
+  comma-separated tags ("hip", "feeding"), and `/themes` (linked from
+  Appointments) shows exact counts and every matching entry per tag, most-
+  mentioned first. Went with explicit tags over scanning notes for
+  repeated keywords — precise, no false positives from generic words.
+- **Guide and Support were overlapping** — "why might they be crying"
+  lived under Guide (development facts) when it's really a confidence
+  question ("is this normal, am I doing something wrong"), the same job
+  Support already does for parents' own wellbeing. Moved the crying-
+  reasons grid and red-flag modal into Support, added a short FAQ
+  accordion there too, and left Guide as purely the week-by-week content.
+- **The medical disclaimer only shows on Home and Support** now, not on
+  every tab — it was noise on Appointments/Data where nothing advice-like
+  is happening.
 - **Onboarding is now one step shorter**: after creating a family and
   saving the code, you're asked for the baby's name and DOB right there
   (with a "Skip for now" escape hatch) instead of landing on an empty
